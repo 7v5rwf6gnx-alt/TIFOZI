@@ -1,0 +1,232 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Adidas World Cup 2026 font ── */
+@font-face {
+  font-family: 'AdidasWC2026';
+  src: url('./assets/fonts/AdidasWC2026.ttf') format('truetype');
+  font-weight: normal;
+  font-style:  normal;
+  font-display: swap;
+}
+
+@layer base {
+  html {
+    background-color: #111111;
+  }
+  body {
+    background-color: transparent;
+    color: #FFFFFF;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           font-bold text-sm px-5 py-2.5 rounded-xl
+           text-white active:scale-95
+           transition-all duration-150;
+    background-color: #1B4FD8;
+  }
+  .btn-primary:hover { background-color: #1440b0; }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           font-bold text-sm px-5 py-2.5 rounded-xl
+           text-gray-300 border border-white/15
+           active:scale-95 transition-all duration-150;
+    background-color: rgba(255,255,255,0.06);
+  }
+  .btn-secondary:hover {
+    background-color: rgba(255,255,255,0.10);
+    color: white;
+  }
+
+  .btn-gradient {
+    @apply inline-flex items-center justify-center gap-2
+           font-bold text-sm px-5 py-2.5 rounded-xl
+           text-white hover:opacity-90 active:scale-95
+           transition-all duration-150;
+    background: linear-gradient(135deg, #1B4FD8 0%, #E8122D 100%);
+  }
+
+  /* ── Cards ────────────────────────────────────────────────── */
+  .card {
+    @apply rounded-2xl;
+    background-color: #1A1A1A;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  .card-hover {
+    @apply hover:-translate-y-0.5 cursor-pointer transition-all duration-200;
+  }
+  .card-hover:hover {
+    background-color: #202020;
+    border-color: rgba(255,255,255,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  .gradient-text {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(135deg, #1B4FD8 0%, #E8122D 100%);
+  }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full
+           text-xs font-bold border;
+    background-color: rgba(27,79,216,0.2);
+    color: #60A5FA;
+    border-color: rgba(27,79,216,0.4);
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────── */
+  .tab-active {
+    @apply text-white rounded-xl font-bold;
+    background-color: #1B4FD8;
+  }
+
+  .tab-inactive {
+    @apply font-semibold transition-colors;
+    color: rgba(255,255,255,0.45);
+  }
+  .tab-inactive:hover { color: rgba(255,255,255,0.85); }
+
+  /* ── Form inputs ──────────────────────────────────────────── */
+  .input-dark {
+    @apply w-full rounded-xl px-4 py-2.5
+           text-white placeholder-gray-600 text-sm
+           focus:outline-none transition-colors;
+    background-color: #242424;
+    border: 2px solid #333333;
+  }
+  .input-dark:focus { border-color: #1B4FD8; }
+}
+
+@layer utilities {
+  .no-spinners { -moz-appearance: textfield; }
+  .no-spinners::-webkit-inner-spin-button,
+  .no-spinners::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+}
+
+/* ── Animation keyframes ──────────────────────────────────────────────────── */
+
+@keyframes aurora {
+  0%, 100% { background-position: 0% 50% }
+  50%       { background-position: 100% 50% }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(27,79,216,0.35), 0 0 20px rgba(107,47,160,0.2) }
+  50%       { box-shadow: 0 0 22px rgba(27,79,216,0.7), 0 0 50px rgba(107,47,160,0.45) }
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1 }
+  50%       { opacity: 0.15 }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -800px 0 }
+  100% { background-position:  800px 0 }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) }
+  20%       { transform: translateX(-6px) }
+  40%       { transform: translateX(6px) }
+  60%       { transform: translateX(-4px) }
+  80%       { transform: translateX(4px) }
+}
+
+@keyframes bounce-in {
+  0%   { transform: scale(0.5); opacity: 0 }
+  65%  { transform: scale(1.25) }
+  100% { transform: scale(1); opacity: 1 }
+}
+
+@keyframes count-flash {
+  0%   { opacity: 0; transform: scale(0.7) translateY(4px) }
+  60%  { opacity: 1; transform: scale(1.08) translateY(0) }
+  100% { opacity: 1; transform: scale(1) }
+}
+
+/* ── Utility classes ─────────────────────────────────────────────────────── */
+
+.aurora-bg {
+  background: linear-gradient(135deg, #0f1e5c, #1B4FD8, #6B2FA0, #E8122D, #1B4FD8, #0f1e5c);
+  background-size: 400% 400%;
+  animation: aurora 12s ease infinite;
+}
+
+.glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+
+.blink-dot  { animation: blink-dot 1.4s ease-in-out infinite; }
+
+.animate-shake { animation: shake 0.4s ease-in-out; }
+
+.animate-bounce-in { animation: bounce-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+.animate-count-flash { animation: count-flash 0.5s ease-out both; }
+
+.skeleton {
+  background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: 10px;
+}
+
+@keyframes ball-float {
+  0%   { transform: translateY(0)      rotate(0deg);   opacity: inherit; }
+  85%  { opacity: inherit; }
+  100% { transform: translateY(-110vh) rotate(540deg); opacity: 0; }
+}
+.ball-float { animation: ball-float linear infinite; }
+
+/* ── Ripple effect ───────────────────────────────────────────────────────── */
+@keyframes ripple-expand {
+  0%   { transform: scale(0); opacity: 0.5 }
+  100% { transform: scale(3.5); opacity: 0 }
+}
+
+.btn-primary, .btn-secondary, .btn-gradient {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after, .btn-secondary::after, .btn-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%),
+    rgba(255,255,255,0.35) 0%, transparent 60%);
+  transform: scale(0);
+  opacity: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.btn-primary:active::after, .btn-secondary:active::after, .btn-gradient:active::after {
+  animation: ripple-expand 0.45s ease-out forwards;
+}
+
+/* ── Page transition fade ────────────────────────────────────────────────── */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+/* ── Smooth scroll for horizontal carousels ─────────────────────────────── */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-snap-x > * {
+  scroll-snap-align: start;
+}

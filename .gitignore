@@ -1,0 +1,11 @@
+node_modules/
+.env
+**/.env
+**/.env.local
+**/.env.production
+dist/
+.DS_Store
+backend/logs/
+*.log
+supabase/.temp/
+.claude/
