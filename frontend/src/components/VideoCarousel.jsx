@@ -211,7 +211,7 @@ export default function VideoCarousel() {
                   {/* Year badge */}
                   <div className="absolute top-3 left-3">
                     <span className="font-display text-xs font-black px-2.5 py-1 rounded-lg"
-                      style={{ backgroundColor: '#1B4FD8', color: 'white', letterSpacing: '0.08em' }}>
+                      style={{ backgroundColor: '#0A1628', color: '#FFD700', letterSpacing: '0.08em' }}>
                       {m.year}
                     </span>
                   </div>

@@ -65,7 +65,7 @@ function GoalscorerSelect({ match, onUpdateGoalscorer }) {
         className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all shrink-0 ${
           saved
             ? 'bg-green-900/30 text-green-400 border border-green-500/30'
-            : 'bg-white/10 text-gray-400 hover:bg-[#1B4FD8] hover:text-white border border-white/10'
+            : 'bg-white/10 text-gray-400 hover:bg-[#0A1628] hover:text-[#FFD700] border border-white/10'
         }`}>
         {saving ? '...' : saved ? '✓' : 'OK'}
       </button>
@@ -214,7 +214,7 @@ function PartidosTab() {
           className={`px-5 py-2 rounded-xl font-display text-xs tracking-wider transition-all ${
             subtab === 'mundial' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
           }`}
-          style={subtab === 'mundial' ? { backgroundColor: '#1B4FD8' } : {}}>
+          style={subtab === 'mundial' ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
           MUNDIAL 2026
         </button>
         <button onClick={() => { setSubtab('premier'); setFilter('all') }}
@@ -465,7 +465,7 @@ export default function Admin() {
             className={`px-6 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
               tab === t.key ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
             }`}
-            style={tab === t.key ? { backgroundColor: '#1B4FD8' } : {}}>
+            style={tab === t.key ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
             {t.label.toUpperCase()}
           </button>
         ))}

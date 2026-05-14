@@ -318,7 +318,7 @@ export default function Predictions() {
           className={`flex-1 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
             tab === 'mundial' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
           }`}
-          style={tab === 'mundial' ? { backgroundColor: '#1B4FD8' } : {}}>
+          style={tab === 'mundial' ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
           MUNDIAL 2026
         </button>
         <button onClick={() => setTab('premier')}

@@ -274,7 +274,7 @@ export default function LeagueChat({ ligaId }) {
           type="submit"
           disabled={!text.trim() || sending}
           className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-30 transition-all hover:opacity-90 active:scale-95 self-end"
-          style={{ backgroundColor: '#1B4FD8' }}>
+          style={{ backgroundColor: '#0A1628', color: '#FFD700' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
                className="w-4 h-4" style={{ transform: 'rotate(45deg)' }}>
             <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />

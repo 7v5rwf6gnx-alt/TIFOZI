@@ -284,7 +284,7 @@ function RankingTab({ ligaId, userId, torneo }) {
             {view === v && (
               <motion.div layoutId="ranking-view-bg"
                 className="absolute inset-0 rounded-xl"
-                style={{ backgroundColor: '#1B4FD8' }}
+                style={{ backgroundColor: '#0A1628' }}
                 transition={{ type: 'spring', bounce: 0.2, duration: 0.35 }} />
             )}
             <span className="relative z-10">{label}</span>

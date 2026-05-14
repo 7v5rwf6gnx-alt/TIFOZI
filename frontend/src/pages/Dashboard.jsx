@@ -11,7 +11,7 @@ function LeagueCard({ liga, myRank, memberCount }) {
       className="card card-hover p-5 block group animate-slide-up">
       <div className="flex items-start justify-between mb-4">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
-             style={{ background: 'linear-gradient(135deg, #1B4FD8, #E8122D)' }}>
+             style={{ backgroundColor: '#0A1628' }}>
           🏆
         </div>
         <span className="text-xs text-gray-500 font-mono bg-white/10 px-2 py-1 rounded-lg">

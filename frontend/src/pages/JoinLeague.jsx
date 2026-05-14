@@ -74,7 +74,7 @@ export default function JoinLeague() {
 
             <div className="p-8 text-center">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6"
-                   style={{ background: 'linear-gradient(135deg, #1B4FD8, #E8122D)' }}>
+                   style={{ backgroundColor: '#0A1628' }}>
                 🏆
               </div>
 

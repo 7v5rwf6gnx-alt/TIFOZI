@@ -83,7 +83,7 @@ export default function OnboardingModal({ onComplete }) {
               </div>
 
               <button onClick={() => avatar ? setStep(1) : setError('Elegí un avatar')}
-                className="btn-primary w-full text-base py-3" style={{ backgroundColor: '#1B4FD8' }}>
+                className="btn-primary w-full text-base py-3" style={{ backgroundColor: '#0A1628', color: '#FFD700' }}>
                 Siguiente →
               </button>
               {error && <p className="text-red-400 text-sm text-center mt-2">{error}</p>}
@@ -117,7 +117,7 @@ export default function OnboardingModal({ onComplete }) {
               <div className="flex gap-3">
                 <button onClick={() => setStep(0)} className="btn-secondary flex-1">← Volver</button>
                 <button onClick={handleSave} disabled={saving}
-                  className="btn-primary flex-1 disabled:opacity-50" style={{ backgroundColor: '#1B4FD8' }}>
+                  className="btn-primary flex-1 disabled:opacity-50" style={{ backgroundColor: '#0A1628', color: '#FFD700' }}>
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
@@ -134,7 +134,7 @@ export default function OnboardingModal({ onComplete }) {
 
               <div className="space-y-3">
                 <button onClick={() => { onComplete(); navigate('/crear-liga') }}
-                  className="btn-primary w-full text-base py-3" style={{ backgroundColor: '#1B4FD8' }}>
+                  className="btn-primary w-full text-base py-3" style={{ backgroundColor: '#0A1628', color: '#FFD700' }}>
                   Crear mi primera liga
                 </button>
                 <button onClick={() => { onComplete(); navigate('/dashboard') }}

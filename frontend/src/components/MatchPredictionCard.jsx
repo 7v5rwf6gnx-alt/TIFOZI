@@ -497,7 +497,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onSaveGoalscore
                 ? 'bg-green-900/30 text-green-400 border border-green-500/30 animate-count-flash'
                 : 'text-white'
             }`}
-            style={!saved ? { backgroundColor: '#1B4FD8', boxShadow: '0 4px 15px rgba(27,79,216,0.4)' } : {}}
+            style={!saved ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}
           >
             {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar pronóstico'}
           </button>
