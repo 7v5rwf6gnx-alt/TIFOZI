@@ -632,32 +632,17 @@ function MatchesTab({ ligaId, userId, torneo }) {
     load()
   }, [ligaId, userId, isPL])
 
-  const handleSave = useCallback(async (matchId, homeScore, awayScore) => {
-    const existing = myPredictions[matchId]
+  const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
     const { data } = await supabase.from('predictions')
       .upsert({
         user_id: userId, match_id: matchId,
         home_score: homeScore, away_score: awayScore,
-        primer_goleador_prediccion_id: existing?.primer_goleador_prediccion_id ?? null,
+        primer_goleador_prediccion_id: goalscorerId ?? null,
       }, { onConflict: 'user_id,match_id' })
       .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
       .single()
     if (data) setMyPredictions(prev => ({ ...prev, [matchId]: data }))
-  }, [userId, myPredictions])
-
-  const handleSaveGoalscorer = useCallback(async (matchId, playerId) => {
-    const existing = myPredictions[matchId]
-    const { data } = await supabase.from('predictions')
-      .upsert({
-        user_id: userId, match_id: matchId,
-        home_score: existing?.home_score ?? null,
-        away_score: existing?.away_score ?? null,
-        primer_goleador_prediccion_id: playerId,
-      }, { onConflict: 'user_id,match_id' })
-      .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-      .single()
-    if (data) setMyPredictions(prev => ({ ...prev, [matchId]: data }))
-  }, [userId, myPredictions])
+  }, [userId])
 
   function getMatchStats(matchId) {
     const preds = allPredictions.filter(p => p.match_id === matchId && p.home_score != null)
@@ -736,7 +721,6 @@ function MatchesTab({ ligaId, userId, torneo }) {
                       match={match}
                       prediction={myPredictions[match.id]}
                       onSave={handleSave}
-                      onSaveGoalscorer={handleSaveGoalscorer}
                     />
                     {locked && (
                       <div className="mt-1 rounded-2xl px-5 py-4"
