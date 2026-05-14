@@ -158,6 +158,15 @@ async function syncResults() {
   return json({ updated, withResults: events.length, logs })
 }
 
+// Convert HH:MM UTC to Panama time (UTC-5)
+function utcToPanama(time?: string | null): string | null {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return null
+  const panamaH = ((h - 5) + 24) % 24
+  return `${String(panamaH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 // ── ACTION: premier ───────────────────────────────────────────────────────────
 // Sincroniza partidos de PL. Si se pasan ?start=YYYY-MM-DD&end=YYYY-MM-DD
 // escanea ese rango; de lo contrario usa el fin de semana actual.
@@ -207,7 +216,7 @@ async function syncPremier(startDate?: string, endDate?: string) {
       home_team_name: ev.strHomeTeam ?? '',
       away_team_name: ev.strAwayTeam ?? '',
       match_date:     ev.dateEvent ?? ev._date,
-      match_time:     ev.strTime?.slice(0, 5) ?? null,
+      match_time:     utcToPanama(ev.strTime?.slice(0, 5)),
       status:         isFinished ? 'finished' : 'scheduled',
       home_score:     isFinished ? parseInt(ev.intHomeScore) : null,
       away_score:     isFinished ? parseInt(ev.intAwayScore) : null,
