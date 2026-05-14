@@ -130,12 +130,10 @@ export default function Predictions() {
   const [predictions, setPredictions]     = useState({})
   const [loadingWC, setLoadingWC]         = useState(true)
   const [selectedGroup, setSelectedGroup] = useState('all')
-  const [pendingGoalscorers, setPendingGoalscorers] = useState({})
 
   const [plMatches, setPlMatches]         = useState([])
   const [plPredictions, setPlPredictions] = useState({})
   const [loadingPL, setLoadingPL]         = useState(true)
-  const [pendingGoalscorersPL, setPendingGoalscorersPL] = useState({})
 
   const [tensionStats, setTensionStats]     = useState({})
   const [plTensionStats, setPlTensionStats] = useState({})
@@ -233,79 +231,31 @@ export default function Predictions() {
     load()
   }, [user.id])
 
-  const handleSave = useCallback(async (matchId, homeScore, awayScore) => {
-    const existing = predictions[matchId]
-    const goalscorerPending = pendingGoalscorers[matchId]
+  const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
     const { data } = await supabase
       .from('predictions')
       .upsert({
         user_id: user.id, match_id: matchId,
         home_score: homeScore, away_score: awayScore,
-        primer_goleador_prediccion_id: existing?.primer_goleador_prediccion_id ?? goalscorerPending ?? null,
-      }, { onConflict: 'user_id,match_id' })
-      .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-      .single()
-    if (data) {
-      setPredictions(prev => ({ ...prev, [matchId]: data }))
-      if (goalscorerPending) setPendingGoalscorers(prev => { const n = { ...prev }; delete n[matchId]; return n })
-    }
-  }, [user.id, predictions, pendingGoalscorers])
-
-  const handleSaveGoalscorer = useCallback(async (matchId, playerId) => {
-    const existing = predictions[matchId]
-    if (!existing) {
-      setPendingGoalscorers(prev => ({ ...prev, [matchId]: playerId }))
-      return
-    }
-    const { data } = await supabase
-      .from('predictions')
-      .upsert({
-        user_id: user.id, match_id: matchId,
-        home_score: existing.home_score,
-        away_score: existing.away_score,
-        primer_goleador_prediccion_id: playerId,
+        primer_goleador_prediccion_id: goalscorerId ?? null,
       }, { onConflict: 'user_id,match_id' })
       .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
       .single()
     if (data) setPredictions(prev => ({ ...prev, [matchId]: data }))
-  }, [user.id, predictions])
+  }, [user.id])
 
-  const handleSavePL = useCallback(async (matchId, homeScore, awayScore) => {
-    const existing = plPredictions[matchId]
-    const goalscorerPending = pendingGoalscorersPL[matchId]
+  const handleSavePL = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
     const { data } = await supabase
       .from('predictions')
       .upsert({
         user_id: user.id, match_id: matchId,
         home_score: homeScore, away_score: awayScore,
-        primer_goleador_prediccion_id: existing?.primer_goleador_prediccion_id ?? goalscorerPending ?? null,
-      }, { onConflict: 'user_id,match_id' })
-      .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-      .single()
-    if (data) {
-      setPlPredictions(prev => ({ ...prev, [matchId]: data }))
-      if (goalscorerPending) setPendingGoalscorersPL(prev => { const n = { ...prev }; delete n[matchId]; return n })
-    }
-  }, [user.id, plPredictions, pendingGoalscorersPL])
-
-  const handleSaveGoalscorerPL = useCallback(async (matchId, playerId) => {
-    const existing = plPredictions[matchId]
-    if (!existing) {
-      setPendingGoalscorersPL(prev => ({ ...prev, [matchId]: playerId }))
-      return
-    }
-    const { data } = await supabase
-      .from('predictions')
-      .upsert({
-        user_id: user.id, match_id: matchId,
-        home_score: existing.home_score,
-        away_score: existing.away_score,
-        primer_goleador_prediccion_id: playerId,
+        primer_goleador_prediccion_id: goalscorerId ?? null,
       }, { onConflict: 'user_id,match_id' })
       .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
       .single()
     if (data) setPlPredictions(prev => ({ ...prev, [matchId]: data }))
-  }, [user.id, plPredictions])
+  }, [user.id])
 
   const groupNames  = [...new Set(matches.map(m => m.group?.name))].sort()
   const filtered    = selectedGroup === 'all' ? matches : matches.filter(m => m.group?.name === selectedGroup)
@@ -435,12 +385,8 @@ export default function Predictions() {
                         transition={{ delay: dateIdx * 0.06 + matchIdx * 0.05, duration: 0.35 }}>
                         <MatchPredictionCard
                           match={match}
-                          prediction={predictions[match.id]
-                            ? { ...predictions[match.id], primer_goleador_prediccion_id: predictions[match.id].primer_goleador_prediccion_id ?? pendingGoalscorers[match.id] ?? null }
-                            : pendingGoalscorers[match.id] ? { primer_goleador_prediccion_id: pendingGoalscorers[match.id] } : undefined
-                          }
+                          prediction={predictions[match.id]}
                           onSave={handleSave}
-                          onSaveGoalscorer={handleSaveGoalscorer}
                           tensionStats={tensionStats[match.id]}
                         />
                       </motion.div>
@@ -519,12 +465,8 @@ export default function Predictions() {
                         transition={{ delay: dateIdx * 0.06 + matchIdx * 0.05, duration: 0.35 }}>
                         <MatchPredictionCard
                           match={match}
-                          prediction={plPredictions[match.id]
-                            ? { ...plPredictions[match.id], primer_goleador_prediccion_id: plPredictions[match.id].primer_goleador_prediccion_id ?? pendingGoalscorersPL[match.id] ?? null }
-                            : pendingGoalscorersPL[match.id] ? { primer_goleador_prediccion_id: pendingGoalscorersPL[match.id] } : undefined
-                          }
+                          prediction={plPredictions[match.id]}
                           onSave={handleSavePL}
-                          onSaveGoalscorer={handleSaveGoalscorerPL}
                           tensionStats={plTensionStats[match.id]}
                         />
                       </motion.div>

@@ -304,34 +304,38 @@ function TensionBar({ stats, homeTeam, awayTeam }) {
 }
 
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave, onSaveGoalscorer, tensionStats = null }) {
+export function MatchPredictionCard({ match, prediction, onSave, tensionStats = null }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
-  const [homeScore, setHomeScore] = useState(prediction?.home_score ?? '')
-  const [awayScore, setAwayScore] = useState(prediction?.away_score ?? '')
-  const [saving, setSaving]       = useState(false)
-  const [saved, setSaved]         = useState(false)
-  const [shake, setShake]         = useState(false)
-  const [showToast, setShowToast] = useState(false)
+  const [homeScore, setHomeScore]     = useState(prediction?.home_score ?? '')
+  const [awayScore, setAwayScore]     = useState(prediction?.away_score ?? '')
+  const [goalscorerId, setGoalscorerId] = useState(prediction?.primer_goleador_prediccion_id ?? null)
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [shake, setShake]             = useState(false)
+  const [showToast, setShowToast]     = useState(false)
   const countdown = useLiveCountdown(match)
   const { label: cdLabel, cdColor, cdBg, cdBorder } = useKickoffCd(match)
+
+  useEffect(() => {
+    setGoalscorerId(prediction?.primer_goleador_prediccion_id ?? null)
+  }, [prediction?.primer_goleador_prediccion_id])
 
   function triggerShake() {
     setShake(true)
     setTimeout(() => setShake(false), 420)
   }
 
-  const isPL             = match.competition === 'premier_league'
-  const pts              = prediction?.points_earned
-  const bonus            = prediction?.bonus_goleador
-  const goalscorerPredId = prediction?.primer_goleador_prediccion_id
-  const groupColor       = isPL ? '#9B59D0' : (GROUP_COLORS[match.group?.name] ?? '#1B4FD8')
+  const isPL       = match.competition === 'premier_league'
+  const pts        = prediction?.points_earned
+  const bonus      = prediction?.bonus_goleador
+  const groupColor = isPL ? '#9B59D0' : (GROUP_COLORS[match.group?.name] ?? '#1B4FD8')
 
   async function handleSave() {
     if (homeScore === '' || awayScore === '') return
     setSaving(true)
-    await onSave(match.id, parseInt(homeScore), parseInt(awayScore))
+    await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId)
     setSaving(false)
     setSaved(true)
     setShowToast(true)
@@ -507,8 +511,8 @@ export function MatchPredictionCard({ match, prediction, onSave, onSaveGoalscore
       <div className="px-5 pb-5">
         <GoalscorerSelector
           match={match}
-          selectedId={goalscorerPredId}
-          onSelect={playerId => onSaveGoalscorer(match.id, playerId)}
+          selectedId={goalscorerId}
+          onSelect={setGoalscorerId}
           disabled={locked}
         />
       </div>
