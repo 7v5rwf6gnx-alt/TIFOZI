@@ -879,7 +879,6 @@ export default function Home() {
       {!user && (
         <section className="py-20 px-4 text-center"
           style={{ background:'linear-gradient(160deg, #0D1B4B 0%, #1B0820 100%)' }}>
-          <FootballParticles />
           <div className="relative max-w-2xl mx-auto">
             <h2 className="font-display font-black text-5xl sm:text-6xl text-white mb-4 tracking-wide">
               ¿LISTO PARA JUGAR?
