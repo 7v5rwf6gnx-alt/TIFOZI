@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { Flag, TeamBlock } from './FlagPair'
@@ -70,18 +70,17 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [players, setPlayers]   = useState({ home: [], away: [] })
   const [loading, setLoading]   = useState(false)
   const [fetchError, setFetchError] = useState(false)
-  const hasFetched = useRef(false)
 
   const allPlayers     = [...players.home, ...players.away]
   const selectedPlayer = selectedId ? allPlayers.find(p => p.id === selectedId) : null
 
   useEffect(() => {
-    if (!open || hasFetched.current) return
-    hasFetched.current = true
-    setLoading(true)
+    if (!open) return
     const homeId = match.home_team?.id
     const awayId = match.away_team?.id
-    if (!homeId || !awayId) { setLoading(false); return }
+    if (!homeId || !awayId) return
+    setLoading(true)
+    setFetchError(false)
 
     supabase
       .from('jugadores')
