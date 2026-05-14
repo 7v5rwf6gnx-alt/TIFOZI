@@ -28,11 +28,15 @@
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2
            font-bold text-sm px-5 py-2.5 rounded-xl
-           text-white active:scale-95
-           transition-all duration-150;
-    background-color: #1B4FD8;
+           active:scale-95 transition-all duration-150;
+    background-color: #0A1628;
+    color: #FFD700;
+    border: 1px solid rgba(255,215,0,0.25);
   }
-  .btn-primary:hover { background-color: #1440b0; }
+  .btn-primary:hover {
+    background-color: #0d1f38;
+    border-color: rgba(255,215,0,0.5);
+  }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2
@@ -49,9 +53,14 @@
   .btn-gradient {
     @apply inline-flex items-center justify-center gap-2
            font-bold text-sm px-5 py-2.5 rounded-xl
-           text-white hover:opacity-90 active:scale-95
-           transition-all duration-150;
-    background: linear-gradient(135deg, #1B4FD8 0%, #E8122D 100%);
+           active:scale-95 transition-all duration-150;
+    background-color: #0A1628;
+    color: #FFD700;
+    border: 1px solid rgba(255,215,0,0.25);
+  }
+  .btn-gradient:hover {
+    background-color: #0d1f38;
+    border-color: rgba(255,215,0,0.5);
   }
 
   /* ── Cards ────────────────────────────────────────────────── */

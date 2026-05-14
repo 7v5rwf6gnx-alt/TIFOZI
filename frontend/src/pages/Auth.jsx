@@ -27,7 +27,7 @@ export default function Auth() {
   const { user, signIn, signUp, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const returnTo = searchParams.get('returnTo') || '/dashboard'
+  const returnTo = searchParams.get('returnTo') || '/'
 
   const [tab, setTab]           = useState('login')
   const [email, setEmail]       = useState('')
@@ -49,7 +49,7 @@ export default function Auth() {
     setLoading(true)
     const { error: err } = await signInWithGoogle()
     if (err) { setError(err.message); setLoading(false) }
-    // On success, Supabase redirects to /dashboard
+    // On success, Supabase redirects to home
   }
 
   async function handleSubmit(e) {
