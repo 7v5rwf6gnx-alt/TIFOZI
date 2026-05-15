@@ -509,7 +509,7 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
       )}
 
       {/* Tension bar */}
-      <TensionBar stats={tensionStats} homeTeam={match.home_team} awayTeam={match.away_team} />
+      {locked && <TensionBar stats={tensionStats} homeTeam={match.home_team} awayTeam={match.away_team} />}
 
       {/* Save button */}
       {!locked && (
