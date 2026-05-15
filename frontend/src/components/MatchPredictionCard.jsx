@@ -96,9 +96,26 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [players, setPlayers]   = useState({ home: [], away: [] })
   const [loading, setLoading]   = useState(false)
   const [fetchError, setFetchError] = useState(false)
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
 
-  const allPlayers     = [...players.home, ...players.away]
-  const selectedPlayer = selectedId ? allPlayers.find(p => p.id === selectedId) : null
+  const allPlayers = [...players.home, ...players.away]
+
+  // When disabled, fetch only the selected player by ID for display
+  useEffect(() => {
+    if (!disabled || !selectedId) return
+    supabase
+      .from('jugadores')
+      .select('id, nombre, numero_camiseta, posicion, equipo_id')
+      .eq('id', selectedId)
+      .single()
+      .then(({ data }) => { if (data) setSelectedPlayer(data) })
+  }, [disabled, selectedId])
+
+  // When not disabled, derive selectedPlayer from the loaded list
+  useEffect(() => {
+    if (disabled) return
+    setSelectedPlayer(selectedId ? allPlayers.find(p => p.id === selectedId) ?? null : null)
+  }, [selectedId, players, disabled])
 
   useEffect(() => {
     if (!open) return
