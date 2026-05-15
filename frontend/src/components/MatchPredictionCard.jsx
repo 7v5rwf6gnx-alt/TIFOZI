@@ -9,6 +9,32 @@ export const GROUP_COLORS = {
   I: '#7C3AED', J: '#059669', K: '#DC2626', L: '#0369A1',
 }
 
+// ── Live score polling (TheSportsDB) ─────────────────────────────────────────
+const LIVE_STATUS_LABEL = { '1H': '1er T', 'HT': 'Descanso', '2H': '2do T', 'ET': 'Prórroga', 'PEN': 'Penales' }
+const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'PEN'])
+
+function useLiveScore(match) {
+  const [liveData, setLiveData] = useState(null)
+  useEffect(() => {
+    if (!match.sofascore_id) return
+    const kickoff = kickoffUtc(match).getTime()
+    const now = Date.now()
+    if (now < kickoff - 5 * 60 * 1000 || now > kickoff + 150 * 60 * 1000) return
+    async function fetchLive() {
+      try {
+        const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`)
+        const json = await res.json()
+        const evt = json?.events?.[0]
+        if (evt) setLiveData({ homeScore: evt.intHomeScore, awayScore: evt.intAwayScore, status: evt.strStatus })
+      } catch {}
+    }
+    fetchLive()
+    const id = setInterval(fetchLive, 60_000)
+    return () => clearInterval(id)
+  }, [match.sofascore_id, match.match_date, match.match_time])
+  return liveData
+}
+
 // ── Locking helpers ───────────────────────────────────────────────────────────
 function kickoffUtc(match) {
   const dateStr = match.match_date?.slice(0, 10)
@@ -317,6 +343,8 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
   const [showToast, setShowToast]     = useState(false)
   const countdown = useLiveCountdown(match)
   const { label: cdLabel, cdColor, cdBg, cdBorder } = useKickoffCd(match)
+  const liveData  = useLiveScore(match)
+  const isLive    = liveData && LIVE_STATUSES.has(liveData.status)
 
   useEffect(() => {
     setGoalscorerId(prediction?.primer_goleador_prediccion_id ?? null)
@@ -414,10 +442,10 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
               {pointsLabel}
             </span>
           )}
-          {match.status === 'live' && (
+          {(match.status === 'live' || isLive) && (
             <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full border border-green-500/30">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
-              EN VIVO
+              {isLive ? (LIVE_STATUS_LABEL[liveData.status] || 'EN VIVO') : 'EN VIVO'}
             </span>
           )}
           {!locked && !finished && cdLabel && (
@@ -459,6 +487,16 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
           code={match.away_team?.code}
         />
       </div>
+
+      {/* Live score */}
+      {isLive && liveData.homeScore != null && (
+        <div className="px-5 pb-2 text-center text-xs text-gray-500">
+          En vivo:{' '}
+          <span className="font-display text-lg text-green-400">
+            {liveData.homeScore}–{liveData.awayScore}
+          </span>
+        </div>
+      )}
 
       {/* Actual result */}
       {finished && (
