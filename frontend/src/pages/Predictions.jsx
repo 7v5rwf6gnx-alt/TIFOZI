@@ -8,6 +8,7 @@ import PLStandings from '../components/PLStandings'
 
 const PL_MATCH_SELECT = `
   id, match_date, match_time, home_score, away_score, status, competition, sofascore_id,
+  match_minute, goals, lineup_home, lineup_away, h2h,
   home_team_name, away_team_name,
   home_team:home_team_id(id, name, code, flag_url),
   away_team:away_team_id(id, name, code, flag_url)
@@ -135,8 +136,6 @@ export default function Predictions() {
   const [plPredictions, setPlPredictions] = useState({})
   const [loadingPL, setLoadingPL]         = useState(true)
 
-  const [tensionStats, setTensionStats]     = useState({})
-  const [plTensionStats, setPlTensionStats] = useState({})
 
   useEffect(() => {
     async function load() {
@@ -145,6 +144,7 @@ export default function Predictions() {
           .from('matches')
           .select(`
             id, match_number, stage, match_date, match_time, home_score, away_score, status, competition,
+            sofascore_id, match_minute, goals, lineup_home, lineup_away, h2h,
             home_team:home_team_id(id, name, code, flag_url),
             away_team:away_team_id(id, name, code, flag_url),
             group:group_id(name)
@@ -160,27 +160,6 @@ export default function Predictions() {
       const predMap = {}
       for (const p of predData || []) predMap[p.match_id] = p
       setPredictions(predMap)
-
-      // Also fetch aggregate predictions from all users for tension bars
-      const matchIds = (matchData || []).map(m => m.id)
-      if (matchIds.length > 0) {
-        const { data: allPreds } = await supabase
-          .from('predictions')
-          .select('match_id, home_score, away_score')
-          .not('home_score', 'is', null)
-          .in('match_id', matchIds)
-
-        const stats = {}
-        for (const p of allPreds || []) {
-          if (!stats[p.match_id]) stats[p.match_id] = { homeWins: 0, draws: 0, awayWins: 0, total: 0 }
-          const s = stats[p.match_id]
-          s.total++
-          if (p.home_score > p.away_score) s.homeWins++
-          else if (p.home_score < p.away_score) s.awayWins++
-          else s.draws++
-        }
-        setTensionStats(stats)
-      }
 
       setLoadingWC(false)
     }
@@ -204,27 +183,6 @@ export default function Predictions() {
       const predMap = {}
       for (const p of predData || []) predMap[p.match_id] = p
       setPlPredictions(predMap)
-
-      // Also fetch aggregate predictions from all users for tension bars
-      const matchIds = (matchData || []).map(m => m.id)
-      if (matchIds.length > 0) {
-        const { data: allPreds } = await supabase
-          .from('predictions')
-          .select('match_id, home_score, away_score')
-          .not('home_score', 'is', null)
-          .in('match_id', matchIds)
-
-        const stats = {}
-        for (const p of allPreds || []) {
-          if (!stats[p.match_id]) stats[p.match_id] = { homeWins: 0, draws: 0, awayWins: 0, total: 0 }
-          const s = stats[p.match_id]
-          s.total++
-          if (p.home_score > p.away_score) s.homeWins++
-          else if (p.home_score < p.away_score) s.awayWins++
-          else s.draws++
-        }
-        setPlTensionStats(stats)
-      }
 
       setLoadingPL(false)
     }
@@ -387,7 +345,6 @@ export default function Predictions() {
                           match={match}
                           prediction={predictions[match.id]}
                           onSave={handleSave}
-                          tensionStats={tensionStats[match.id]}
                         />
                       </motion.div>
                     ))}
@@ -467,7 +424,6 @@ export default function Predictions() {
                           match={match}
                           prediction={plPredictions[match.id]}
                           onSave={handleSavePL}
-                          tensionStats={plTensionStats[match.id]}
                         />
                       </motion.div>
                     ))}

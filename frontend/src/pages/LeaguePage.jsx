@@ -12,12 +12,14 @@ const TABS = ['Ranking', 'Partidos', 'Chat', 'Miembros']
 
 const WC_MATCH_SELECT = `
   id, match_number, stage, match_date, match_time, home_score, away_score, status, competition,
+  sofascore_id, match_minute, goals, lineup_home, lineup_away, h2h,
   home_team:home_team_id(id, name, code, flag_url),
   away_team:away_team_id(id, name, code, flag_url),
   group:group_id(name)
 `
 const PL_MATCH_SELECT = `
   id, match_date, match_time, home_score, away_score, status, competition, sofascore_id,
+  match_minute, goals, lineup_home, lineup_away, h2h,
   home_team_name, away_team_name,
   home_team:home_team_id(id, name, code, flag_url),
   away_team:away_team_id(id, name, code, flag_url)

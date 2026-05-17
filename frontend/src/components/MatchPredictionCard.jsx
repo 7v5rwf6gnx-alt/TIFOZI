@@ -9,7 +9,7 @@ export const GROUP_COLORS = {
   I: '#7C3AED', J: '#059669', K: '#DC2626', L: '#0369A1',
 }
 
-// ── Live score polling (TheSportsDB) ─────────────────────────────────────────
+// ── Live score polling (TheSportsDB V1) ───────────────────────────────────────
 const LIVE_STATUS_LABEL = { '1H': '1er T', 'HT': 'Descanso', '2H': '2do T', 'ET': 'Prórroga', 'PEN': 'Penales' }
 const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'PEN'])
 
@@ -22,10 +22,15 @@ function useLiveScore(match) {
     if (now < kickoff - 5 * 60 * 1000 || now > kickoff + 150 * 60 * 1000) return
     async function fetchLive() {
       try {
-        const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`)
+        const res  = await fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`)
         const json = await res.json()
-        const evt = json?.events?.[0]
-        if (evt) setLiveData({ homeScore: evt.intHomeScore, awayScore: evt.intAwayScore, status: evt.strStatus })
+        const evt  = json?.events?.[0]
+        if (evt) setLiveData({
+          homeScore: evt.intHomeScore,
+          awayScore: evt.intAwayScore,
+          status:    evt.strStatus,
+          minute:    evt.intProgress != null ? parseInt(evt.intProgress) : null,
+        })
       } catch {}
     }
     fetchLive()
@@ -58,20 +63,9 @@ function minsToLock(match) {
 function ScoreInput({ value, onChange }) {
   return (
     <input
-      type="number"
-      inputMode="numeric"
-      min="0" max="20"
-      value={value}
-      onChange={e => {
-        const v = e.target.value
-        if (v === '' || (Number(v) >= 0 && Number(v) <= 20)) onChange(v)
-      }}
-      className="
-        w-14 h-14 sm:w-16 sm:h-16 text-center font-display text-3xl sm:text-4xl text-white
-        bg-[#242424] border-2 rounded-xl
-        focus:outline-none focus:border-[#1B4FD8] focus:bg-[#2A2A2A]
-        active:scale-95 transition-all no-spinners
-      "
+      type="number" inputMode="numeric" min="0" max="20" value={value}
+      onChange={e => { const v = e.target.value; if (v === '' || (Number(v) >= 0 && Number(v) <= 20)) onChange(v) }}
+      className="w-14 h-14 sm:w-16 sm:h-16 text-center font-display text-3xl sm:text-4xl text-white bg-[#242424] border-2 rounded-xl focus:outline-none focus:border-[#1B4FD8] focus:bg-[#2A2A2A] active:scale-95 transition-all no-spinners"
       style={{ borderColor: '#444' }}
     />
   )
@@ -90,6 +84,108 @@ function ScoreDisplay({ value }) {
   )
 }
 
+// ── Goal Timeline ─────────────────────────────────────────────────────────────
+function GoalTimeline({ goals }) {
+  if (!goals?.length) return null
+  return (
+    <div className="px-5 pb-3 pt-2 border-t border-white/5">
+      <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-2">Goles</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {goals.map((g, i) => (
+          <span key={i} className="flex items-center gap-1 text-xs">
+            <span className="text-green-400">⚽</span>
+            <span className="font-semibold text-gray-300">{g.player ?? '?'}</span>
+            {g.minute > 0 && <span className="text-gray-600">{g.minute}'</span>}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Lineup Section ────────────────────────────────────────────────────────────
+function LineupSection({ match }) {
+  const [open, setOpen] = useState(false)
+  const home = match.lineup_home
+  const away = match.lineup_away
+  if (!home?.length && !away?.length) return null
+
+  const isPL      = match.competition === 'premier_league'
+  const starters  = list => (list ?? []).filter(p => !p.sub)
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors">
+        <span className="font-bold uppercase tracking-wide">Alineaciones</span>
+        <span className="text-[10px]">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {[{ team: match.home_team, lineup: home }, { team: match.away_team, lineup: away }].map(({ team, lineup }, idx) => (
+            <div key={idx}>
+              <div className="flex items-center gap-1.5 mb-2">
+                {team?.flag_url && (
+                  isPL
+                    ? <img src={team.flag_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', backgroundColor: '#222', borderRadius: '50%' }} />
+                    : <img src={team.flag_url} alt="" style={{ width: 20, height: 13, objectFit: 'cover', borderRadius: 2 }} />
+                )}
+                <span className="text-xs font-bold text-gray-300 truncate">{team?.code ?? team?.name ?? '?'}</span>
+              </div>
+              <div className="space-y-1">
+                {starters(lineup).map((p, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-gray-600 w-5 text-right shrink-0">{p.number}</span>
+                    <span className="text-[11px] text-gray-300 truncate leading-tight">{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── H2H Section ───────────────────────────────────────────────────────────────
+function H2HSection({ match }) {
+  const [open, setOpen] = useState(false)
+  const h2h = match.h2h
+  if (!h2h?.length) return null
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors">
+        <span className="font-bold uppercase tracking-wide">Historial H2H</span>
+        <span className="text-[10px]">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2">
+          {h2h.slice(0, 5).map((m, i) => {
+            const hScore = m.homeScore ?? '?'
+            const aScore = m.awayScore ?? '?'
+            return (
+              <div key={i} className="flex items-center gap-2 text-[11px]">
+                <span className="text-gray-700 w-14 shrink-0 text-right font-mono">
+                  {m.date ? new Date(m.date + 'T12:00:00').toLocaleDateString('es', { day: 'numeric', month: 'short' }) : ''}
+                </span>
+                <span className="flex-1 text-right text-gray-400 truncate min-w-0">{m.homeTeam}</span>
+                <span className="font-display text-sm text-white shrink-0 px-1.5 py-0.5 rounded min-w-[42px] text-center"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.07)' }}>
+                  {hScore}–{aScore}
+                </span>
+                <span className="flex-1 text-left text-gray-400 truncate min-w-0">{m.awayTeam}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Goalscorer Selector ───────────────────────────────────────────────────────
 function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [open, setOpen]         = useState(false)
@@ -100,18 +196,13 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
 
   const allPlayers = [...players.home, ...players.away]
 
-  // When disabled, fetch only the selected player by ID for display
   useEffect(() => {
     if (!disabled || !selectedId) return
-    supabase
-      .from('jugadores')
-      .select('id, nombre, numero_camiseta, posicion, equipo_id')
-      .eq('id', selectedId)
-      .single()
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id')
+      .eq('id', selectedId).single()
       .then(({ data }) => { if (data) setSelectedPlayer(data) })
   }, [disabled, selectedId])
 
-  // When not disabled, derive selectedPlayer from the loaded list
   useEffect(() => {
     if (disabled) return
     setSelectedPlayer(selectedId ? allPlayers.find(p => p.id === selectedId) ?? null : null)
@@ -122,33 +213,19 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     const homeId = match.home_team?.id
     const awayId = match.away_team?.id
     if (!homeId || !awayId) return
-    setLoading(true)
-    setFetchError(false)
-
-    supabase
-      .from('jugadores')
-      .select('id, nombre, numero_camiseta, posicion, equipo_id')
-      .in('equipo_id', [homeId, awayId])
-      .order('numero_camiseta')
+    setLoading(true); setFetchError(false)
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id')
+      .in('equipo_id', [homeId, awayId]).order('numero_camiseta')
       .then(({ data, error }) => {
         if (error) { setFetchError(true); setLoading(false); return }
         const all = data || []
-        setPlayers({
-          home: all.filter(p => p.equipo_id === homeId),
-          away: all.filter(p => p.equipo_id === awayId),
-        })
+        setPlayers({ home: all.filter(p => p.equipo_id === homeId), away: all.filter(p => p.equipo_id === awayId) })
         setLoading(false)
       })
   }, [open, match.home_team?.id, match.away_team?.id])
 
-  function handleSelect(player) { onSelect(player.id); setOpen(false) }
-  function handleClear(e)       { e.stopPropagation(); onSelect(null) }
-
   const hasPlayers  = players.home.length > 0 || players.away.length > 0
-  const teamsConfig = [
-    { team: match.home_team, list: players.home },
-    { team: match.away_team, list: players.away },
-  ]
+  const teamsConfig = [{ team: match.home_team, list: players.home }, { team: match.away_team, list: players.away }]
 
   return (
     <div className="mt-3 pt-3 border-t border-white/10">
@@ -157,7 +234,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
           ⚡ Primer goleador <span className="text-gray-600 font-normal">(+2 pts)</span>
         </span>
         {selectedPlayer && !disabled && (
-          <button onClick={handleClear} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
+          <button onClick={e => { e.stopPropagation(); onSelect(null) }} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
             Quitar
           </button>
         )}
@@ -180,15 +257,10 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
           <button
             onClick={() => setOpen(v => !v)}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-xs transition-all font-semibold ${
-              selectedPlayer
-                ? 'bg-yellow-900/20 border-yellow-500/40 text-yellow-400'
-                : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
-            }`}
-          >
+              selectedPlayer ? 'bg-yellow-900/20 border-yellow-500/40 text-yellow-400' : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
+            }`}>
             <span className="truncate">
-              {selectedPlayer
-                ? `#${selectedPlayer.numero_camiseta} ${selectedPlayer.nombre}`
-                : 'Seleccionar goleador...'}
+              {selectedPlayer ? `#${selectedPlayer.numero_camiseta} ${selectedPlayer.nombre}` : 'Seleccionar goleador...'}
             </span>
             <span className="ml-2 shrink-0 text-[10px]">{open ? '▲' : '▼'}</span>
           </button>
@@ -213,18 +285,14 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
                         <p className="text-center py-4 text-gray-600 text-xs px-2">Sin jugadores</p>
                       ) : (
                         list.map(p => (
-                          <button key={p.id} onClick={() => handleSelect(p)}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-all hover:bg-[#1B4FD8]/10 ${
-                              selectedId === p.id ? 'bg-yellow-900/20' : ''
-                            }`}>
+                          <button key={p.id} onClick={() => { onSelect(p.id); setOpen(false) }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-all hover:bg-[#1B4FD8]/10 ${selectedId === p.id ? 'bg-yellow-900/20' : ''}`}>
                             <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 text-white"
                                   style={{ backgroundColor: selectedId === p.id ? '#FFD700' : '#333' }}>
                               {p.numero_camiseta}
                             </span>
                             <div className="min-w-0">
-                              <p className={`text-xs font-semibold leading-tight truncate ${
-                                selectedId === p.id ? 'text-yellow-400' : 'text-gray-200'
-                              }`}>{p.nombre}</p>
+                              <p className={`text-xs font-semibold leading-tight truncate ${selectedId === p.id ? 'text-yellow-400' : 'text-gray-200'}`}>{p.nombre}</p>
                               <p className="text-gray-600 text-[10px] capitalize">{p.posicion}</p>
                             </div>
                           </button>
@@ -245,32 +313,26 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
 // ── Live countdown hook ───────────────────────────────────────────────────────
 function useLiveCountdown(match) {
   const [label, setLabel] = useState('')
-
   useEffect(() => {
     function tick() {
       const msLeft = kickoffUtc(match).getTime() - Date.now() - 10 * 60 * 1000
       if (msLeft <= 0) { setLabel(''); return }
       const s = Math.floor(msLeft / 1000)
-      const h = Math.floor(s / 3600)
-      const m = Math.floor((s % 3600) / 60)
-      const sec = s % 60
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
       if (h > 0)       setLabel(`${h}h ${String(m).padStart(2,'0')}m`)
       else if (m > 0)  setLabel(`${m}m ${String(sec).padStart(2,'0')}s`)
       else             setLabel(`${sec}s`)
     }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id)
   }, [match])
-
   return label
 }
 
-// ── Kickoff countdown hook (colored) ─────────────────────────────────────────
+// ── Kickoff countdown hook ────────────────────────────────────────────────────
 function useKickoffCd(match) {
-  const [label, setLabel] = useState('')
+  const [label, setLabel]   = useState('')
   const [cdColor, setCdColor] = useState('#9CA3AF')
-  const [cdBg, setCdBg] = useState('rgba(255,255,255,0.06)')
+  const [cdBg, setCdBg]     = useState('rgba(255,255,255,0.06)')
   const [cdBorder, setCdBorder] = useState('rgba(255,255,255,0.12)')
 
   useEffect(() => {
@@ -278,99 +340,44 @@ function useKickoffCd(match) {
       const ms = kickoffUtc(match).getTime() - Date.now()
       if (ms <= 0) { setLabel(''); return }
       const totalMins = Math.floor(ms / 60000)
-      const s = Math.floor(ms / 1000)
-      const h = Math.floor(s / 3600)
-      const m = Math.floor((s % 3600) / 60)
-      const sec = s % 60
-
+      const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
       if (h > 48) setLabel(`${Math.floor(h / 24)}d`)
       else if (h > 0) setLabel(`${h}h ${String(m).padStart(2, '0')}m`)
       else if (m > 0) setLabel(`${m}m ${String(sec).padStart(2, '0')}s`)
       else setLabel(`${sec}s`)
-
-      if (totalMins > 60) {
-        setCdColor('#00A550'); setCdBg('rgba(0,165,80,0.1)'); setCdBorder('rgba(0,165,80,0.25)')
-      } else if (totalMins > 10) {
-        setCdColor('#F97316'); setCdBg('rgba(249,115,22,0.1)'); setCdBorder('rgba(249,115,22,0.25)')
-      } else {
-        setCdColor('#E8122D'); setCdBg('rgba(232,18,45,0.12)'); setCdBorder('rgba(232,18,45,0.4)')
-      }
+      if (totalMins > 60) { setCdColor('#00A550'); setCdBg('rgba(0,165,80,0.1)'); setCdBorder('rgba(0,165,80,0.25)') }
+      else if (totalMins > 10) { setCdColor('#F97316'); setCdBg('rgba(249,115,22,0.1)'); setCdBorder('rgba(249,115,22,0.25)') }
+      else { setCdColor('#E8122D'); setCdBg('rgba(232,18,45,0.12)'); setCdBorder('rgba(232,18,45,0.4)') }
     }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id)
   }, [match])
 
   return { label, cdColor, cdBg, cdBorder }
 }
 
-// ── Tension Bar ───────────────────────────────────────────────────────────────
-function TensionBar({ stats, homeTeam, awayTeam }) {
-  if (!stats || stats.total < 3) return null
-  const homeP = Math.round((stats.homeWins / stats.total) * 100)
-  const drawP = Math.round((stats.draws / stats.total) * 100)
-  const awayP = 100 - homeP - drawP
-
-  return (
-    <div className="px-5 py-2 border-t border-white/5">
-      <div className="flex items-center justify-between text-[10px] mb-1.5">
-        <div className="flex items-center gap-1.5">
-          {homeTeam?.flag_url && (
-            <img src={homeTeam.flag_url} alt="" className="w-4 h-3 object-cover rounded-sm" />
-          )}
-          <span className="text-white font-bold">{homeP}%</span>
-        </div>
-        {drawP > 0 && <span className="text-gray-600 font-bold">{drawP}% X</span>}
-        <div className="flex items-center gap-1.5">
-          <span className="text-white font-bold">{awayP}%</span>
-          {awayTeam?.flag_url && (
-            <img src={awayTeam.flag_url} alt="" className="w-4 h-3 object-cover rounded-sm" />
-          )}
-        </div>
-      </div>
-      <div className="flex rounded-full overflow-hidden h-1.5 gap-px">
-        <motion.div initial={{ width: 0 }} animate={{ width: `${homeP}%` }}
-          transition={{ duration: 0.9, ease: 'easeOut' }}
-          style={{ backgroundColor: '#1B4FD8', minWidth: homeP > 0 ? 3 : 0 }} />
-        {drawP > 0 && (
-          <motion.div initial={{ width: 0 }} animate={{ width: `${drawP}%` }}
-            transition={{ duration: 0.9, delay: 0.1, ease: 'easeOut' }}
-            style={{ backgroundColor: '#4B5563', minWidth: drawP > 0 ? 3 : 0 }} />
-        )}
-        <motion.div initial={{ width: 0 }} animate={{ width: `${awayP}%` }}
-          transition={{ duration: 0.9, delay: 0.2, ease: 'easeOut' }}
-          style={{ backgroundColor: '#E8122D', minWidth: awayP > 0 ? 3 : 0 }} />
-      </div>
-      <p className="text-center text-[10px] text-gray-700 mt-1">{stats.total} pronósticos</p>
-    </div>
-  )
-}
-
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave, tensionStats = null }) {
+export function MatchPredictionCard({ match, prediction, onSave }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
-  const [homeScore, setHomeScore]     = useState(prediction?.home_score ?? '')
-  const [awayScore, setAwayScore]     = useState(prediction?.away_score ?? '')
+  const [homeScore, setHomeScore]       = useState(prediction?.home_score ?? '')
+  const [awayScore, setAwayScore]       = useState(prediction?.away_score ?? '')
   const [goalscorerId, setGoalscorerId] = useState(prediction?.primer_goleador_prediccion_id ?? null)
-  const [saving, setSaving]           = useState(false)
-  const [saved, setSaved]             = useState(false)
-  const [shake, setShake]             = useState(false)
-  const [showToast, setShowToast]     = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [saved, setSaved]               = useState(false)
+  const [shake, setShake]               = useState(false)
+  const [showToast, setShowToast]       = useState(false)
   const countdown = useLiveCountdown(match)
   const { label: cdLabel, cdColor, cdBg, cdBorder } = useKickoffCd(match)
   const liveData  = useLiveScore(match)
   const isLive    = liveData && LIVE_STATUSES.has(liveData.status)
+  const liveMinute = liveData?.minute ?? match.match_minute ?? null
 
   useEffect(() => {
     setGoalscorerId(prediction?.primer_goleador_prediccion_id ?? null)
   }, [prediction?.primer_goleador_prediccion_id])
 
-  function triggerShake() {
-    setShake(true)
-    setTimeout(() => setShake(false), 420)
-  }
+  function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
 
   const isPL       = match.competition === 'premier_league'
   const pts        = prediction?.points_earned
@@ -381,16 +388,13 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
     if (homeScore === '' || awayScore === '') return
     setSaving(true)
     await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId)
-    setSaving(false)
-    setSaved(true)
-    setShowToast(true)
+    setSaving(false); setSaved(true); setShowToast(true)
     setTimeout(() => setSaved(false), 2000)
     setTimeout(() => setShowToast(false), 2500)
   }
 
   const pointsLabel = finished && pts != null
-    ? pts === 3 ? '3 pts' : pts === 1 ? '1 pt' : '0 pts'
-    : null
+    ? pts === 3 ? '3 pts' : pts === 1 ? '1 pt' : '0 pts' : null
 
   const ptColor = pts === 3 ? 'text-panini-gold bg-yellow-900/20 border-yellow-500/30'
                : pts === 1 ? 'text-green-400 bg-green-900/20 border-green-500/30'
@@ -406,6 +410,11 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
     fmtTime(match.match_time),
   ].filter(Boolean).join(' · ')
 
+  // Live badge label
+  const liveBadgeLabel = isLive
+    ? `${LIVE_STATUS_LABEL[liveData.status] || 'EN VIVO'}${liveMinute ? ` ${liveMinute}'` : ''}`
+    : 'EN VIVO'
+
   return (
     <div
       onClick={locked && !finished ? triggerShake : undefined}
@@ -413,20 +422,18 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
         !locked ? 'hover:shadow-[0_8px_40px_rgba(0,0,0,0.7)] hover:-translate-y-0.5' : ''
       } ${locked && !finished ? 'cursor-not-allowed opacity-80' : ''} ${shake ? 'animate-shake' : ''}`}
       style={{
-        background: 'linear-gradient(160deg, #1E1E1E 0%, #181818 100%)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderLeft: `4px solid ${finished ? '#00A550' : groupColor}`,
-        boxShadow: `0 2px 12px rgba(0,0,0,0.5), inset 3px 0 20px ${groupColor}18`,
+        background:   'linear-gradient(160deg, #1E1E1E 0%, #181818 100%)',
+        border:       '1px solid rgba(255,255,255,0.08)',
+        borderLeft:   `4px solid ${finished ? '#00A550' : groupColor}`,
+        boxShadow:    `0 2px 12px rgba(0,0,0,0.5), inset 3px 0 20px ${groupColor}18`,
       }}
     >
-      {/* Closing-soon warning with live countdown */}
+      {/* Closing-soon warning */}
       {closingSoon && countdown && (
         <div className="px-5 py-2 flex items-center justify-center gap-2"
              style={{ backgroundColor: 'rgba(217,119,6,0.12)', borderBottom: '1px solid rgba(217,119,6,0.25)' }}>
           <span className="blink-dot w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-          <span className="text-amber-400 text-xs font-bold">
-            Cierra en {countdown}
-          </span>
+          <span className="text-amber-400 text-xs font-bold">Cierra en {countdown}</span>
         </div>
       )}
 
@@ -462,7 +469,7 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
           {(match.status === 'live' || isLive) && (
             <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full border border-green-500/30">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
-              {isLive ? (LIVE_STATUS_LABEL[liveData.status] || 'EN VIVO') : 'EN VIVO'}
+              {liveBadgeLabel}
             </span>
           )}
           {!locked && !finished && cdLabel && (
@@ -476,12 +483,7 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
 
       {/* Teams + scores */}
       <div className="flex items-center gap-3 sm:gap-5 px-5 py-5">
-        <TeamBlock
-          flagUrl={match.home_team?.flag_url}
-          name={match.home_team?.name}
-          code={match.home_team?.code}
-        />
-
+        <TeamBlock flagUrl={match.home_team?.flag_url} name={match.home_team?.name} code={match.home_team?.code} />
         <div className="shrink-0 flex items-center gap-1 sm:gap-2">
           {locked ? (
             <>
@@ -497,12 +499,7 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
             </>
           )}
         </div>
-
-        <TeamBlock
-          flagUrl={match.away_team?.flag_url}
-          name={match.away_team?.name}
-          code={match.away_team?.code}
-        />
+        <TeamBlock flagUrl={match.away_team?.flag_url} name={match.away_team?.name} code={match.away_team?.code} />
       </div>
 
       {/* Live score */}
@@ -512,6 +509,7 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
           <span className="font-display text-lg text-green-400">
             {liveData.homeScore}–{liveData.awayScore}
           </span>
+          {liveMinute && <span className="ml-1.5 text-green-600 text-xs">{liveMinute}'</span>}
         </div>
       )}
 
@@ -525,8 +523,8 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
         </div>
       )}
 
-      {/* Tension bar */}
-      {locked && <TensionBar stats={tensionStats} homeTeam={match.home_team} awayTeam={match.away_team} />}
+      {/* Goal timeline */}
+      {finished && <GoalTimeline goals={match.goals} />}
 
       {/* Save button */}
       {!locked && (
@@ -551,18 +549,15 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
             onClick={handleSave}
             disabled={saving || homeScore === '' || awayScore === ''}
             className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all disabled:opacity-40 active:scale-95 ${
-              saved
-                ? 'bg-green-900/30 text-green-400 border border-green-500/30 animate-count-flash'
-                : 'text-white'
+              saved ? 'bg-green-900/30 text-green-400 border border-green-500/30 animate-count-flash' : 'text-white'
             }`}
-            style={!saved ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}
-          >
+            style={!saved ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}>
             {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar pronóstico'}
           </button>
         </div>
       )}
 
-      {/* Goalscorer */}
+      {/* Goalscorer + H2H (pre-match) + Lineups (post-kickoff) */}
       <div className="px-5 pb-5">
         <GoalscorerSelector
           match={match}
@@ -570,6 +565,8 @@ export function MatchPredictionCard({ match, prediction, onSave, tensionStats = 
           onSelect={setGoalscorerId}
           disabled={locked}
         />
+        {!locked && <H2HSection match={match} />}
+        {locked && <LineupSection match={match} />}
       </div>
     </div>
   )
