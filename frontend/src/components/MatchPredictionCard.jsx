@@ -65,7 +65,7 @@ function ScoreInput({ value, onChange }) {
     <input
       type="number" inputMode="numeric" min="0" max="20" value={value}
       onChange={e => { const v = e.target.value; if (v === '' || (Number(v) >= 0 && Number(v) <= 20)) onChange(v) }}
-      className="w-14 h-14 sm:w-16 sm:h-16 text-center font-display text-3xl sm:text-4xl text-white bg-[#242424] border-2 rounded-xl focus:outline-none focus:border-[#1B4FD8] focus:bg-[#2A2A2A] active:scale-95 transition-all no-spinners"
+      className="w-12 h-12 text-center font-display text-2xl sm:text-3xl text-white bg-[#242424] border-2 rounded-xl focus:outline-none focus:border-[#1B4FD8] focus:bg-[#2A2A2A] active:scale-95 transition-all no-spinners"
       style={{ borderColor: '#444' }}
     />
   )
@@ -75,9 +75,9 @@ function ScoreInput({ value, onChange }) {
 function ScoreDisplay({ value }) {
   const hasValue = value !== '' && value != null
   return (
-    <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-xl"
+    <div className="w-12 h-12 flex items-center justify-center rounded-xl"
          style={{ backgroundColor: '#1C1C1C', border: '2px solid rgba(255,255,255,0.07)' }}>
-      <span className="font-display text-3xl sm:text-4xl" style={{ color: hasValue ? 'white' : '#374151' }}>
+      <span className="font-display text-2xl sm:text-3xl" style={{ color: hasValue ? 'white' : '#374151' }}>
         {hasValue ? value : '–'}
       </span>
     </div>
@@ -572,7 +572,7 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
       </div>
 
       {/* Teams + scores */}
-      <div className="flex items-center gap-3 sm:gap-5 px-5 py-5">
+      <div className="flex items-center gap-3 sm:gap-5 px-5 py-3">
         <TeamBlock flagUrl={match.home_team?.flag_url} name={match.home_team?.name} code={match.home_team?.code} />
         <div className="shrink-0 flex items-center gap-1 sm:gap-2">
           {locked ? (

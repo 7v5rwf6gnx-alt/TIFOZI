@@ -591,44 +591,38 @@ function PickDistribution({ match, stats, members, viewMode, myUserId }) {
 
 // ── Matches Tab ───────────────────────────────────────────────────────────────
 function MatchesTab({ ligaId, userId, torneo }) {
-  const [matches, setMatches]               = useState([])
-  const [myPredictions, setMyPredictions]   = useState({})
-  const [allPredictions, setAllPredictions] = useState([])
-  const [members, setMembers]               = useState([])
-  const [loading, setLoading]               = useState(true)
-  const [filter, setFilter]                 = useState('all')
-  const [viewMode, setViewMode]             = useState('summary')
+  const [matches, setMatches]             = useState([])
+  const [myPredictions, setMyPredictions] = useState({})
+  const [loading, setLoading]             = useState(true)
+  const [filter, setFilter]               = useState('all')
+  const [selectedDay, setSelectedDay]     = useState(null)
   const isPL = torneo === 'premier_league'
 
   useEffect(() => {
     if (!userId) return
     async function load() {
-      const { data: memberData } = await supabase
-        .from('liga_miembros')
-        .select('usuario_id, profiles:usuario_id(username)')
-        .eq('liga_id', ligaId)
-
-      const memberIds = (memberData || []).map(m => m.usuario_id)
-      setMembers(memberData || [])
-
-      const predQuery = memberIds.length > 0
-        ? supabase.from('predictions')
-            .select('user_id, match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-            .in('user_id', memberIds)
-        : Promise.resolve({ data: [] })
-
       const matchQuery = isPL
         ? supabase.from('matches').select(PL_MATCH_SELECT).eq('competition', 'premier_league').order('match_date')
         : supabase.from('matches').select(WC_MATCH_SELECT).eq('stage', 'group').order('match_number')
 
-      const [{ data: matchData }, { data: predData }] = await Promise.all([matchQuery, predQuery])
+      const [{ data: matchData }, { data: predData }] = await Promise.all([
+        matchQuery,
+        supabase.from('predictions')
+          .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
+          .eq('user_id', userId),
+      ])
 
-      setMatches(matchData || [])
-      const all = predData || []
-      setAllPredictions(all)
+      const mData = matchData || []
+      setMatches(mData)
       const myMap = {}
-      for (const p of all) if (p.user_id === userId) myMap[p.match_id] = p
+      for (const p of predData || []) myMap[p.match_id] = p
       setMyPredictions(myMap)
+
+      // Default: first day with non-finished match, else last day
+      const days = [...new Set(mData.map(m => (m.match_date ?? '').slice(0, 10)).filter(Boolean))].sort()
+      const firstUpcoming = days.find(d => mData.some(m => (m.match_date ?? '').slice(0, 10) === d && m.status !== 'finished'))
+      setSelectedDay(firstUpcoming ?? days[days.length - 1] ?? null)
+
       setLoading(false)
     }
     load()
@@ -646,39 +640,25 @@ function MatchesTab({ ligaId, userId, torneo }) {
     if (data) setMyPredictions(prev => ({ ...prev, [matchId]: data }))
   }, [userId])
 
-  function getMatchStats(matchId) {
-    const preds = allPredictions.filter(p => p.match_id === matchId && p.home_score != null)
-    const total = preds.length
-    if (total === 0) return null
-    const homeWins = preds.filter(p => p.home_score > p.away_score)
-    const draws    = preds.filter(p => p.home_score === p.away_score)
-    const awayWins = preds.filter(p => p.home_score < p.away_score)
-    const pct = n => Math.round(n / total * 100)
-    return {
-      homeWin: { count: homeWins.length, pct: pct(homeWins.length), userIds: homeWins.map(p => p.user_id) },
-      draw:    { count: draws.length,    pct: pct(draws.length),    userIds: draws.map(p => p.user_id)    },
-      awayWin: { count: awayWins.length, pct: pct(awayWins.length), userIds: awayWins.map(p => p.user_id) },
-      total,
-    }
-  }
-
   const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
-  const groups   = isPL ? [] : [...new Set(matches.map(m => m.group?.name))].sort()
-  const filtered = (!isPL && filter !== 'all') ? matches.filter(m => m.group?.name === filter) : matches
-  const byDate   = filtered.reduce((acc, m) => {
-    const d = (m.match_date ?? '').slice(0, 10)
-    if (!acc[d]) acc[d] = []
-    acc[d].push(m)
-    return acc
-  }, {})
+  const groups = isPL ? [] : [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
+
+  const days = useMemo(() =>
+    [...new Set(matches.map(m => (m.match_date ?? '').slice(0, 10)).filter(Boolean))].sort()
+  , [matches])
+
+  const groupFiltered = (!isPL && filter !== 'all') ? matches.filter(m => m.group?.name === filter) : matches
+  const dayMatches    = selectedDay ? groupFiltered.filter(m => (m.match_date ?? '').slice(0, 10) === selectedDay) : groupFiltered
 
   if (loading) return <SkeletonRanking />
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="animate-slide-up">
-      <div className="flex items-start justify-between gap-2 mb-6">
-        <div className="flex flex-wrap gap-2">
-          {!isPL && ['all', ...groups].map(g => (
+
+      {/* Group filter (WC only) */}
+      {!isPL && groups.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {['all', ...groups].map(g => (
             <button key={g} onClick={() => setFilter(g)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 filter === g ? 'text-white' : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
@@ -687,58 +667,44 @@ function MatchesTab({ ligaId, userId, torneo }) {
               {g === 'all' ? 'Todos' : `Grupo ${g}`}
             </button>
           ))}
-          {isPL && (
-            <span className="text-xs font-bold px-3 py-1.5 rounded-xl text-white"
-                  style={{ backgroundColor: '#3D0070' }}>PREMIER LEAGUE</span>
-          )}
         </div>
-        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1 shrink-0">
-          <button onClick={() => setViewMode('summary')} title="Resumen"
-            className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
-              viewMode === 'summary' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-            }`}
-            style={viewMode === 'summary' ? { backgroundColor: accentColor } : {}}>📊</button>
-          <button onClick={() => setViewMode('detail')} title="Detalle"
-            className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
-              viewMode === 'detail' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
-            }`}
-            style={viewMode === 'detail' ? { backgroundColor: accentColor } : {}}>👥</button>
-        </div>
-      </div>
+      )}
 
-      <div className="space-y-8">
-        {Object.entries(byDate).map(([date, dayMatches]) => (
-          <div key={date}>
-            <p className="font-display text-sm tracking-widest uppercase mb-3" style={{ color: accentColor }}>
-              {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', {
-                weekday: 'long', day: 'numeric', month: 'long',
-              }).toUpperCase()}
-            </p>
-            <div className="space-y-4">
-              {dayMatches.map(match => {
-                const locked = isLocked(match)
-                return (
-                  <div key={match.id}>
-                    <MatchPredictionCard
-                      match={match}
-                      prediction={myPredictions[match.id]}
-                      onSave={handleSave}
-                    />
-                    {locked && (
-                      <div className="mt-1 rounded-2xl px-5 py-4"
-                           style={{ background: 'linear-gradient(160deg, #181818 0%, #141414 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <PickDistribution
-                          match={match} stats={getMatchStats(match.id)}
-                          members={members} viewMode={viewMode} myUserId={userId}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+      {/* Day tabs */}
+      {days.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
+          {days.map(day => {
+            const date    = new Date(day + 'T12:00:00')
+            const label   = date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+            const hasLive = matches.some(m => (m.match_date ?? '').slice(0, 10) === day && m.status === 'live')
+            const isActive = selectedDay === day
+            return (
+              <button key={day} onClick={() => setSelectedDay(day)}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
+                  isActive ? 'text-white border-transparent' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/25'
+                }`}
+                style={isActive ? { backgroundColor: accentColor } : {}}>
+                {hasLive && <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />}
+                {label.toUpperCase()}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Match cards */}
+      <div className="space-y-4">
+        {dayMatches.map(match => (
+          <MatchPredictionCard
+            key={match.id}
+            match={match}
+            prediction={myPredictions[match.id]}
+            onSave={handleSave}
+          />
         ))}
+        {dayMatches.length === 0 && (
+          <p className="text-center text-gray-600 py-10 text-sm">Sin partidos para este día.</p>
+        )}
       </div>
     </motion.div>
   )
