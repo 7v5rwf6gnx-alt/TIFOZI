@@ -85,19 +85,57 @@ function ScoreDisplay({ value }) {
 }
 
 // ── Goal Timeline ─────────────────────────────────────────────────────────────
-function GoalTimeline({ goals }) {
+function GoalTimeline({ goals, match }) {
   if (!goals?.length) return null
+
+  const normStr = s => (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
+  const isPL      = match.competition === 'premier_league'
+  const homeLabel = isPL ? match.home_team_name : match.home_team?.name
+  const awayLabel = isPL ? match.away_team_name : match.away_team?.name
+
+  const isHomeGoal = g => {
+    if (!g.team || !homeLabel) return true
+    const nt = normStr(g.team), nh = normStr(homeLabel)
+    return nt.includes(nh.slice(0, 5)) || nh.includes(nt.slice(0, 5))
+  }
+
+  const groupByPlayer = list => {
+    const map = new Map()
+    for (const g of list) {
+      const key = g.player ?? '?'
+      if (!map.has(key)) map.set(key, [])
+      if (g.minute > 0) map.get(key).push(g.minute)
+    }
+    return [...map.entries()].map(([player, minutes]) => ({ player, minutes: minutes.sort((a, b) => a - b) }))
+  }
+
+  const homeGoals = groupByPlayer(goals.filter(g => isHomeGoal(g)))
+  const awayGoals = groupByPlayer(goals.filter(g => !isHomeGoal(g)))
+
   return (
     <div className="px-5 pb-3 pt-2 border-t border-white/5">
-      <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-2">Goles</p>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-        {goals.map((g, i) => (
-          <span key={i} className="flex items-center gap-1 text-xs">
-            <span className="text-green-400">⚽</span>
-            <span className="font-semibold text-gray-300">{g.player ?? '?'}</span>
-            {g.minute > 0 && <span className="text-gray-600">{g.minute}'</span>}
-          </span>
-        ))}
+      <div className="grid grid-cols-[1fr_14px_1fr] items-start gap-x-2">
+        <div className="space-y-1.5">
+          {homeGoals.map((g, i) => (
+            <div key={i} className="flex items-baseline justify-end gap-1 text-right">
+              {g.minutes.length > 0 && (
+                <span className="text-[10px] text-gray-600 shrink-0">{g.minutes.map(m => `${m}'`).join(', ')}</span>
+              )}
+              <span className="text-[11px] font-semibold text-gray-300">{g.player}</span>
+            </div>
+          ))}
+        </div>
+        <div className="text-center pt-0.5 text-xs leading-none">⚽</div>
+        <div className="space-y-1.5">
+          {awayGoals.map((g, i) => (
+            <div key={i} className="flex items-baseline gap-1">
+              <span className="text-[11px] font-semibold text-gray-300">{g.player}</span>
+              {g.minutes.length > 0 && (
+                <span className="text-[10px] text-gray-600 shrink-0">{g.minutes.map(m => `${m}'`).join(', ')}</span>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -110,38 +148,85 @@ function LineupSection({ match }) {
   const away = match.lineup_away
   if (!home?.length && !away?.length) return null
 
-  const isPL      = match.competition === 'premier_league'
-  const starters  = list => (list ?? []).filter(p => !p.sub)
+  const isPL     = match.competition === 'premier_league'
+  const homeTeam = match.home_team
+  const awayTeam = match.away_team
+
+  const starters = list => (list ?? []).filter(p => !p.sub)
+  const byPos    = (list, pos) => starters(list).filter(p => (p.position ?? '').toLowerCase().includes(pos))
+
+  // Home: GK | DEF | MID | FWD  (left → center)
+  const homeColumns = [
+    byPos(home, 'portero'),
+    byPos(home, 'defensa'),
+    byPos(home, 'medioc'),
+    byPos(home, 'delant'),
+  ]
+  // Away: FWD | MID | DEF | GK  (center → right, mirrored)
+  const awayColumns = [
+    byPos(away, 'delant'),
+    byPos(away, 'medioc'),
+    byPos(away, 'defensa'),
+    byPos(away, 'portero'),
+  ]
+
+  const PlayerDot = ({ player }) => (
+    <div className="flex flex-col items-center gap-0.5" style={{ width: 32 }}>
+      <div className="w-6 h-6 rounded-full border border-white/40 flex items-center justify-center text-white font-bold"
+           style={{ fontSize: 8, backgroundColor: 'rgba(255,255,255,0.13)' }}>
+        {player.number ?? ''}
+      </div>
+      <span className="text-center text-white/70 leading-tight"
+            style={{ fontSize: 7, width: 32, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {(player.name ?? '').split(' ').pop()}
+      </span>
+    </div>
+  )
+
+  const PosColumn = ({ players }) => (
+    <div className="flex flex-col items-center justify-center gap-2 flex-1 py-2">
+      {players.map((p, i) => <PlayerDot key={i} player={p} />)}
+    </div>
+  )
+
+  const TeamBadge = ({ team, align }) => (
+    <div className={`flex items-center gap-1.5 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+      {team?.flag_url && (
+        isPL
+          ? <img src={team.flag_url} alt="" style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
+          : <img src={team.flag_url} alt="" style={{ width: 18, height: 12, objectFit: 'cover', borderRadius: 2 }} />
+      )}
+      <span className="text-[10px] text-white font-bold truncate">{team?.code ?? team?.name}</span>
+    </div>
+  )
 
   return (
     <div className="mt-3 pt-3 border-t border-white/10">
-      <button onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 transition-colors">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors">
         <span className="font-bold uppercase tracking-wide">Alineaciones</span>
-        <span className="text-[10px]">{open ? '▲' : '▼'}</span>
+        <span className="text-[10px] text-gray-600">{open ? '▲ Ocultar' : '▼ Ver'}</span>
       </button>
+
       {open && (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {[{ team: match.home_team, lineup: home }, { team: match.away_team, lineup: away }].map(({ team, lineup }, idx) => (
-            <div key={idx}>
-              <div className="flex items-center gap-1.5 mb-2">
-                {team?.flag_url && (
-                  isPL
-                    ? <img src={team.flag_url} alt="" style={{ width: 16, height: 16, objectFit: 'contain', backgroundColor: '#222', borderRadius: '50%' }} />
-                    : <img src={team.flag_url} alt="" style={{ width: 20, height: 13, objectFit: 'cover', borderRadius: 2 }} />
-                )}
-                <span className="text-xs font-bold text-gray-300 truncate">{team?.code ?? team?.name ?? '?'}</span>
-              </div>
-              <div className="space-y-1">
-                {starters(lineup).map((p, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-gray-600 w-5 text-right shrink-0">{p.number}</span>
-                    <span className="text-[11px] text-gray-300 truncate leading-tight">{p.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="mt-2 rounded-xl overflow-hidden" style={{ background: 'linear-gradient(160deg, #1a5c3a, #1e6e45)' }}>
+          {/* Team headers */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+            <TeamBadge team={homeTeam} align="left" />
+            <span className="text-[9px] text-white/25 italic">titulares</span>
+            <TeamBadge team={awayTeam} align="right" />
+          </div>
+
+          {/* Pitch */}
+          <div className="flex items-stretch px-1 relative" style={{ minHeight: 110 }}>
+            {/* Center line */}
+            <div className="absolute inset-y-2 left-1/2 w-px bg-white/15 -translate-x-px" />
+            {homeColumns.map((col, i) => <PosColumn key={`h${i}`} players={col} />)}
+            {awayColumns.map((col, i) => <PosColumn key={`a${i}`} players={col} />)}
+          </div>
+
+          <p className="text-center pb-1.5 text-white/25" style={{ fontSize: 8 }}>GK — DEF — MED — DEL · DEL — MED — DEF — GK</p>
         </div>
       )}
     </div>
@@ -524,7 +609,7 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
       )}
 
       {/* Goal timeline */}
-      {finished && <GoalTimeline goals={match.goals} />}
+      {finished && <GoalTimeline goals={match.goals} match={match} />}
 
       {/* Save button */}
       {!locked && (
