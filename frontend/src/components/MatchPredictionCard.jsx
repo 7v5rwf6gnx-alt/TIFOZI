@@ -146,7 +146,7 @@ function LineupSection({ match }) {
   const [open, setOpen] = useState(false)
   const home = match.lineup_home
   const away = match.lineup_away
-  if (!home?.length && !away?.length) return null
+  const hasData = home?.length || away?.length
 
   const isPL     = match.competition === 'premier_league'
   const homeTeam = match.home_team
@@ -210,24 +210,29 @@ function LineupSection({ match }) {
       </button>
 
       {open && (
-        <div className="mt-2 rounded-xl overflow-hidden" style={{ background: 'linear-gradient(160deg, #1a5c3a, #1e6e45)' }}>
-          {/* Team headers */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-            <TeamBadge team={homeTeam} align="left" />
-            <span className="text-[9px] text-white/25 italic">titulares</span>
-            <TeamBadge team={awayTeam} align="right" />
-          </div>
+        hasData ? (
+          <div className="mt-2 rounded-xl overflow-hidden" style={{ background: 'linear-gradient(160deg, #1a5c3a, #1e6e45)' }}>
+            {/* Team headers */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+              <TeamBadge team={homeTeam} align="left" />
+              <span className="text-[9px] text-white/25 italic">titulares</span>
+              <TeamBadge team={awayTeam} align="right" />
+            </div>
 
-          {/* Pitch */}
-          <div className="flex items-stretch px-1 relative" style={{ minHeight: 110 }}>
-            {/* Center line */}
-            <div className="absolute inset-y-2 left-1/2 w-px bg-white/15 -translate-x-px" />
-            {homeColumns.map((col, i) => <PosColumn key={`h${i}`} players={col} />)}
-            {awayColumns.map((col, i) => <PosColumn key={`a${i}`} players={col} />)}
-          </div>
+            {/* Pitch */}
+            <div className="flex items-stretch px-1 relative" style={{ minHeight: 110 }}>
+              <div className="absolute inset-y-2 left-1/2 w-px bg-white/15 -translate-x-px" />
+              {homeColumns.map((col, i) => <PosColumn key={`h${i}`} players={col} />)}
+              {awayColumns.map((col, i) => <PosColumn key={`a${i}`} players={col} />)}
+            </div>
 
-          <p className="text-center pb-1.5 text-white/25" style={{ fontSize: 8 }}>GK — DEF — MED — DEL · DEL — MED — DEF — GK</p>
-        </div>
+            <p className="text-center pb-1.5 text-white/25" style={{ fontSize: 8 }}>GK — DEF — MED — DEL · DEL — MED — DEF — GK</p>
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-gray-600 text-center py-3">
+            Alineaciones disponibles ~1h antes del partido
+          </p>
+        )
       )}
     </div>
   )
