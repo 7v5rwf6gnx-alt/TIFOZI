@@ -15,6 +15,8 @@ const LIVE_STATUSES = new Set(['1H', 'HT', '2H', 'ET', 'PEN'])
 
 function useLiveScore(match) {
   const [liveData, setLiveData] = useState(null)
+  const [dbMinute, setDbMinute] = useState(match.match_minute ?? null)
+
   useEffect(() => {
     if (!match.sofascore_id) return
     const kickoff = kickoffUtc(match).getTime()
@@ -26,13 +28,14 @@ function useLiveScore(match) {
           fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`),
           supabase.from('matches').select('match_minute').eq('id', match.id).single(),
         ])
+        if (dbRes.data?.match_minute != null) setDbMinute(dbRes.data.match_minute)
         const json = await apiRes.json()
         const evt  = json?.events?.[0]
         if (evt) setLiveData({
           homeScore: evt.intHomeScore,
           awayScore: evt.intAwayScore,
           status:    evt.strStatus,
-          minute:    evt.intProgress != null ? parseInt(evt.intProgress) : (dbRes.data?.match_minute ?? null),
+          minute:    evt.intProgress != null ? parseInt(evt.intProgress) : null,
         })
       } catch {}
     }
@@ -40,7 +43,8 @@ function useLiveScore(match) {
     const id = setInterval(fetchLive, 60_000)
     return () => clearInterval(id)
   }, [match.sofascore_id, match.match_date, match.match_time])
-  return liveData
+
+  return { liveData, dbMinute }
 }
 
 // ── Locking helpers ───────────────────────────────────────────────────────────
@@ -233,7 +237,9 @@ function LineupSection({ match }) {
           </div>
         ) : (
           <p className="mt-2 text-[11px] text-gray-600 text-center py-3">
-            Alineaciones disponibles ~1h antes del partido
+            {match.status === 'finished' || match.status === 'live'
+              ? 'Alineaciones no disponibles para este partido'
+              : 'Alineaciones disponibles ~1h antes del partido'}
           </p>
         )
       )}
@@ -462,9 +468,9 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
   const [showToast, setShowToast]       = useState(false)
   const countdown = useLiveCountdown(match)
   const { label: cdLabel, cdColor, cdBg, cdBorder } = useKickoffCd(match)
-  const liveData  = useLiveScore(match)
+  const { liveData, dbMinute } = useLiveScore(match)
   const isLive    = liveData && LIVE_STATUSES.has(liveData.status)
-  const liveMinute = liveData?.minute ?? match.match_minute ?? null
+  const liveMinute = liveData?.minute ?? dbMinute ?? null
 
   useEffect(() => {
     setGoalscorerId(prediction?.primer_goleador_prediccion_id ?? null)
