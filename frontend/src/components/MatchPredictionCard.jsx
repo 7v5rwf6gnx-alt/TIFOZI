@@ -22,14 +22,17 @@ function useLiveScore(match) {
     if (now < kickoff - 5 * 60 * 1000 || now > kickoff + 150 * 60 * 1000) return
     async function fetchLive() {
       try {
-        const res  = await fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`)
-        const json = await res.json()
+        const [apiRes, dbRes] = await Promise.all([
+          fetch(`https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=${match.sofascore_id}`),
+          supabase.from('matches').select('match_minute').eq('id', match.id).single(),
+        ])
+        const json = await apiRes.json()
         const evt  = json?.events?.[0]
         if (evt) setLiveData({
           homeScore: evt.intHomeScore,
           awayScore: evt.intAwayScore,
           status:    evt.strStatus,
-          minute:    evt.intProgress != null ? parseInt(evt.intProgress) : null,
+          minute:    evt.intProgress != null ? parseInt(evt.intProgress) : (dbRes.data?.match_minute ?? null),
         })
       } catch {}
     }
