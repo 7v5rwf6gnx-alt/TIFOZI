@@ -96,9 +96,8 @@ function GoalTimeline({ goals, match }) {
   if (!goals?.length) return null
 
   const normStr = s => (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
-  const isPL      = match.competition === 'premier_league'
-  const homeLabel = isPL ? match.home_team_name : match.home_team?.name
-  const awayLabel = isPL ? match.away_team_name : match.away_team?.name
+  const homeLabel = match.home_team?.name
+  const awayLabel = match.away_team?.name
 
   const isHomeGoal = g => {
     if (!g.team || !homeLabel) return true
@@ -155,7 +154,6 @@ function LineupSection({ match }) {
   const away = match.lineup_away
   const hasData = home?.length || away?.length
 
-  const isPL     = match.competition === 'premier_league'
   const homeTeam = match.home_team
   const awayTeam = match.away_team
 
@@ -199,9 +197,7 @@ function LineupSection({ match }) {
   const TeamBadge = ({ team, align }) => (
     <div className={`flex items-center gap-1.5 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
       {team?.flag_url && (
-        isPL
-          ? <img src={team.flag_url} alt="" style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: '50%' }} />
-          : <img src={team.flag_url} alt="" style={{ width: 18, height: 12, objectFit: 'cover', borderRadius: 2 }} />
+        <img src={team.flag_url} alt="" style={{ width: 18, height: 12, objectFit: 'cover', borderRadius: 2 }} />
       )}
       <span className="text-[10px] text-white font-bold truncate">{team?.code ?? team?.name}</span>
     </div>
@@ -478,10 +474,9 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
 
   function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
 
-  const isPL       = match.competition === 'premier_league'
   const pts        = prediction?.points_earned
   const bonus      = prediction?.bonus_goleador
-  const groupColor = isPL ? '#9B59D0' : (GROUP_COLORS[match.group?.name] ?? '#1B4FD8')
+  const groupColor = GROUP_COLORS[match.group?.name] ?? '#1B4FD8'
 
   async function handleSave() {
     if (homeScore === '' || awayScore === '') return

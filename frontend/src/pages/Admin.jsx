@@ -74,7 +74,7 @@ function GoalscorerSelect({ match, onUpdateGoalscorer }) {
 }
 
 // ── Match row ─────────────────────────────────────────────────────────────────
-function MatchRow({ match, onUpdate, onUpdateGoalscorer, isPL }) {
+function MatchRow({ match, onUpdate, onUpdateGoalscorer }) {
   const [home, setHome]   = useState(match.home_score ?? '')
   const [away, setAway]   = useState(match.away_score ?? '')
   const [saving, setSaving] = useState(false)
@@ -95,17 +95,10 @@ function MatchRow({ match, onUpdate, onUpdateGoalscorer, isPL }) {
     finished:  { label: 'Final',     cls: 'bg-blue-900/20 text-[#1B4FD8]' },
   }
   const sc = statusConfig[match.status] ?? statusConfig.scheduled
-  const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
 
   const TeamCell = ({ team }) => (
     <div className="flex items-center gap-2">
-      {isPL ? (
-        <img src={team?.flag_url} alt={team?.name}
-             style={{ width: 20, height: 20, objectFit: 'contain', borderRadius: '50%' }}
-             onError={e => { e.target.style.display = 'none' }} />
-      ) : (
-        <Flag src={team?.flag_url} size={20} />
-      )}
+      <Flag src={team?.flag_url} size={20} />
       <span className="text-white text-sm font-semibold">{team?.name}</span>
     </div>
   )
@@ -113,9 +106,7 @@ function MatchRow({ match, onUpdate, onUpdateGoalscorer, isPL }) {
   return (
     <tr className="border-b border-white/5 hover:bg-white/5 transition-colors">
       <td className="py-3 px-4 text-gray-500 text-xs font-mono">
-        {isPL
-          ? new Date(match.match_date + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-          : `#${match.match_number}`}
+        #{match.match_number}
       </td>
       <td className="py-3 px-4"><TeamCell team={match.home_team} /></td>
       <td className="py-3 px-2 text-gray-600 text-xs text-center">vs</td>
@@ -138,7 +129,7 @@ function MatchRow({ match, onUpdate, onUpdateGoalscorer, isPL }) {
                 ? 'bg-green-900/30 text-green-400 border border-green-500/30'
                 : 'text-white hover:opacity-80'
             }`}
-            style={!saved ? { backgroundColor: accentColor } : {}}>
+            style={!saved ? { backgroundColor: '#1B4FD8' } : {}}>
             {saving ? '...' : saved ? '✓' : 'OK'}
           </button>
         </div>
@@ -152,11 +143,8 @@ function MatchRow({ match, onUpdate, onUpdateGoalscorer, isPL }) {
 
 // ── Partidos tab ──────────────────────────────────────────────────────────────
 function PartidosTab() {
-  const [subtab, setSubtab]   = useState('mundial')
-  const [wcMatches, setWcMatches] = useState([])
-  const [plMatches, setPlMatches] = useState([])
-  const [loadingWC, setLoadingWC] = useState(true)
-  const [loadingPL, setLoadingPL] = useState(true)
+  const [matches, setMatches] = useState([])
+  const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
 
   const MATCH_JOIN = `
@@ -169,63 +157,30 @@ function PartidosTab() {
 
   useEffect(() => {
     supabase.from('matches').select(MATCH_JOIN)
-      .eq('stage', 'group').order('match_number')
-      .then(({ data }) => { setWcMatches(data || []); setLoadingWC(false) })
+      .eq('competition', 'world_cup').order('match_number')
+      .then(({ data }) => { setMatches(data || []); setLoading(false) })
   }, [])
 
-  useEffect(() => {
-    supabase.from('matches').select(MATCH_JOIN)
-      .eq('competition', 'premier_league').order('match_date')
-      .then(({ data }) => { setPlMatches(data || []); setLoadingPL(false) })
-  }, [])
-
-  async function handleUpdate(matchId, home, away, isPlMatch) {
+  async function handleUpdate(matchId, home, away) {
     const { data } = await supabase
       .from('matches')
       .update({ home_score: home, away_score: away, status: 'finished' })
       .eq('id', matchId).select().single()
     if (!data) return
-    const upd = m => m.id === matchId
-      ? { ...m, home_score: home, away_score: away, status: 'finished' } : m
-    if (isPlMatch) setPlMatches(prev => prev.map(upd))
-    else setWcMatches(prev => prev.map(upd))
+    setMatches(prev => prev.map(m => m.id === matchId
+      ? { ...m, home_score: home, away_score: away, status: 'finished' } : m))
   }
 
-  async function handleUpdateGoalscorer(matchId, playerId, isPlMatch) {
+  async function handleUpdateGoalscorer(matchId, playerId) {
     await supabase.from('matches').update({ primer_goleador_real_id: playerId }).eq('id', matchId)
-    const upd = m => m.id === matchId ? { ...m, primer_goleador_real_id: playerId } : m
-    if (isPlMatch) setPlMatches(prev => prev.map(upd))
-    else setWcMatches(prev => prev.map(upd))
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, primer_goleador_real_id: playerId } : m))
   }
 
-  const isPL      = subtab === 'premier'
-  const loading   = isPL ? loadingPL : loadingWC
-  const matches   = isPL ? plMatches : wcMatches
   const filtered  = filter === 'all' ? matches : matches.filter(m => m.status === filter)
-  const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
-
   const filterLabels = { all: 'Todos', scheduled: 'Pendientes', live: 'En vivo', finished: 'Finalizados' }
 
   return (
     <div>
-      {/* Subtab toggle */}
-      <div className="flex gap-1.5 mb-5 p-1 rounded-2xl w-fit" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-        <button onClick={() => { setSubtab('mundial'); setFilter('all') }}
-          className={`px-5 py-2 rounded-xl font-display text-xs tracking-wider transition-all ${
-            subtab === 'mundial' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={subtab === 'mundial' ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
-          MUNDIAL 2026
-        </button>
-        <button onClick={() => { setSubtab('premier'); setFilter('all') }}
-          className={`px-5 py-2 rounded-xl font-display text-xs tracking-wider transition-all ${
-            subtab === 'premier' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={subtab === 'premier' ? { backgroundColor: '#9B59D0' } : {}}>
-          PREMIER LEAGUE
-        </button>
-      </div>
-
       {/* Status filter */}
       <div className="flex gap-2 mb-5">
         {Object.entries(filterLabels).map(([key, label]) => (
@@ -235,7 +190,7 @@ function PartidosTab() {
                 ? 'text-white'
                 : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
             }`}
-            style={filter === key ? { backgroundColor: accentColor } : {}}>
+            style={filter === key ? { backgroundColor: '#1B4FD8' } : {}}>
             {label}
           </button>
         ))}
@@ -251,9 +206,7 @@ function PartidosTab() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5 bg-[#242424] text-left">
-                  <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">
-                    {isPL ? 'Fecha' : '#'}
-                  </th>
+                  <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">#</th>
                   <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">Local</th>
                   <th />
                   <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">Visitante</th>
@@ -267,9 +220,8 @@ function PartidosTab() {
                   <MatchRow
                     key={m.id}
                     match={m}
-                    isPL={isPL}
-                    onUpdate={(id, h, a) => handleUpdate(id, h, a, isPL)}
-                    onUpdateGoalscorer={(id, p) => handleUpdateGoalscorer(id, p, isPL)}
+                    onUpdate={handleUpdate}
+                    onUpdateGoalscorer={handleUpdateGoalscorer}
                   />
                 ))}
               </tbody>
@@ -373,8 +325,7 @@ function LigasTab() {
   if (loading) return <div className="text-center py-20 text-gray-500">Cargando...</div>
 
   const torneoConfig = {
-    mundial_2026:    { label: 'Mundial 2026',    color: '#1B4FD8', emoji: '🏆' },
-    premier_league:  { label: 'Premier League',  color: '#9B59D0', emoji: '⚽' },
+    mundial_2026: { label: 'Mundial 2026', color: '#1B4FD8', emoji: '🏆' },
   }
 
   return (

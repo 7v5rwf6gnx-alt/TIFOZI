@@ -8,6 +8,7 @@ const WC_LEAGUE = '4429'
 const WC_SEASON = '2026'
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN', 'Match Finished', 'After Extra Time', 'After Penalties'])
+const LIVE_STATUSES     = new Set(['1H', 'HT', '2H', 'ET', 'PEN', 'Break Time', 'Extra Time', 'Half Time'])
 
 const SOFA_KEY  = Deno.env.get('RAPIDAPI_KEY')!
 const SOFA_HOST = 'sofascore.p.rapidapi.com'
@@ -62,6 +63,18 @@ function namesMatch(a: string, b: string) {
     || na.includes(nb.slice(0, 7))   || nb.includes(na.slice(0, 7))
 }
 
+// Fetch all live soccer events from V2, returns map idEvent → minute
+async function fetchLiveMinutes(): Promise<Record<string, number | null>> {
+  try {
+    const data = await tsdbV2Fetch('/livescore/soccer')
+    const map: Record<string, number | null> = {}
+    for (const ev of data?.livescore ?? []) {
+      if (ev.idEvent) map[String(ev.idEvent)] = ev.strProgress != null ? parseInt(ev.strProgress) : null
+    }
+    return map
+  } catch { return {} }
+}
+
 // True if 115+ min have elapsed since kickoff (match_time is Panama UTC-5)
 function isTimeExpired(matchDate: string, matchTime: string | null): boolean {
   if (!matchTime) return false
@@ -75,8 +88,8 @@ function isTimeExpired(matchDate: string, matchTime: string | null): boolean {
 async function fetchGoals(sofascoreId: number) {
   try {
     const data = await tsdbV2Fetch(`/lookup/event_timeline/${sofascoreId}`)
-    return (data?.timeline ?? [])
-      .filter((e: any) => (e.strType ?? '').toLowerCase() === 'goal')
+    return (data?.lookup ?? data?.timeline ?? [])
+      .filter((e: any) => (e.strTimeline ?? e.strType ?? '').toLowerCase() === 'goal')
       .map((e: any) => ({
         minute: parseInt(e.intTime ?? '') || 0,
         player: e.strPlayer ?? e.strPlayerName ?? null,
@@ -99,7 +112,37 @@ async function resolveGoleador(playerName: string, homeTeamId: string | null, aw
   return found?.id ?? null
 }
 
-// Close a finished match: fetch goals, resolve goleador, update DB
+// Score all unscored predictions for a finished match
+async function scoreMatch(matchId: string, homeScore: number, awayScore: number, primerGoleadorRealId: string | null): Promise<number> {
+  const realResult = homeScore > awayScore ? 'H' : homeScore < awayScore ? 'A' : 'D'
+  const { data: preds } = await supabase
+    .from('predictions')
+    .select('id, home_score, away_score, primer_goleador_prediccion_id')
+    .eq('match_id', matchId)
+    .is('points_earned', null)
+
+  if (!preds?.length) return 0
+  let scored = 0
+  for (const pred of preds) {
+    if (pred.home_score == null || pred.away_score == null) continue
+    const predResult = pred.home_score > pred.away_score ? 'H' : pred.home_score < pred.away_score ? 'A' : 'D'
+    const exacto    = pred.home_score === homeScore && pred.away_score === awayScore
+    const resultado = predResult === realResult
+    const pts       = exacto ? 3 : resultado ? 1 : 0
+    const bonus     = primerGoleadorRealId && pred.primer_goleador_prediccion_id === primerGoleadorRealId ? 2 : 0
+    const { error } = await supabase.from('predictions').update({
+      points_earned:        pts,
+      bonus_goleador:       bonus,
+      marcadores_exactos:   exacto ? 1 : 0,
+      partidos_acertados:   resultado ? 1 : 0,
+      goleadores_acertados: bonus > 0 ? 1 : 0,
+    }).eq('id', pred.id)
+    if (!error) scored++
+  }
+  return scored
+}
+
+// Close a finished match: fetch goals, resolve goleador, update DB, score predictions
 async function closeMatch(matchId: string, sofascoreId: number, homeScore: number, awayScore: number, homeTeamId: string | null, awayTeamId: string | null) {
   const goals            = await fetchGoals(sofascoreId)
   const firstGoalPlayer  = goals[0]?.player ?? null
@@ -113,6 +156,7 @@ async function closeMatch(matchId: string, sofascoreId: number, homeScore: numbe
   if (primerGoleadorId) update.primer_goleador_real_id = primerGoleadorId
 
   const { error } = await supabase.from('matches').update(update).eq('id', matchId)
+  if (!error) await scoreMatch(matchId, homeScore, awayScore, primerGoleadorId)
   return { error, firstGoalPlayer, primerGoleadorId, goalsCount: goals.length }
 }
 
@@ -185,13 +229,14 @@ async function syncResultsWC() {
   const nowIso = new Date().toISOString()
   const { data: dbMatches, error: dbErr } = await supabase
     .from('matches')
-    .select('id, sofascore_id, home_team_id, away_team_id, match_date, match_time, home_team:home_team_id(name), away_team:away_team_id(name)')
+    .select('id, sofascore_id, status, home_team_id, away_team_id, match_date, match_time, home_team:home_team_id(name), away_team:away_team_id(name)')
     .eq('competition', 'world_cup').neq('status', 'finished')
     .not('sofascore_id', 'is', null).lt('match_date', nowIso)
 
   if (dbErr) return json({ error: dbErr.message }, 500)
   if (!dbMatches?.length) return json({ message: 'Sin partidos WC pendientes de cierre', updated: 0 })
 
+  const liveMinutes = await fetchLiveMinutes()
   let updated = 0; const logs: string[] = []
   for (const match of dbMatches) {
     const home = (match.home_team as any)?.name ?? '?'
@@ -205,9 +250,19 @@ async function syncResultsWC() {
       const finished = FINISHED_STATUSES.has(status) || isTimeExpired(match.match_date as string, match.match_time as string | null)
 
       if (!finished) {
+        if (!LIVE_STATUSES.has(status)) {
+          // Match exists in DB as non-finished but hasn't kicked off yet — reset if wrongly set to live
+          if ((match as any).status === 'live') {
+            await supabase.from('matches').update({ status: 'scheduled', match_minute: null }).eq('id', match.id)
+            logs.push(`↩ ${home} vs ${away}: reseteado a programado (status API: "${status}")`)
+          } else {
+            logs.push(`⏭ ${home} vs ${away}: aún no iniciado (${status || 'NS'})`)
+          }
+          continue
+        }
         const liveHome = ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null
         const liveAway = ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null
-        const minute   = ev.intProgress  != null ? parseInt(ev.intProgress)  : null
+        const minute   = liveMinutes[String(match.sofascore_id)] ?? (ev.intProgress != null ? parseInt(ev.intProgress) : null)
         await supabase.from('matches').update({
           home_score: liveHome, away_score: liveAway, status: 'live',
           ...(minute != null ? { match_minute: minute } : {}),
@@ -228,114 +283,6 @@ async function syncResultsWC() {
       logs.push(`✓ ${home} ${homeScore}-${awayScore} ${away}${firstGoalPlayer ? ` (⚽ ${firstGoalPlayer}${primerGoleadorId ? '' : ' — no en DB'}, ${goalsCount} goles)` : ''}`)
       updated++
     } catch (e: any) { logs.push(`Error ${home} vs ${away}: ${e.message}`) }
-  }
-  return json({ checked: dbMatches.length, updated, logs })
-}
-
-// Convert HH:MM UTC to Panama time (UTC-5)
-function utcToPanama(time?: string | null): string | null {
-  if (!time) return null
-  const [h, m] = time.split(':').map(Number)
-  if (isNaN(h) || isNaN(m)) return null
-  return `${String(((h - 5) + 24) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-// ── ACTION: premier — upsert upcoming/past PL matches ────────────────────────
-async function syncPremier(startDate?: string, endDate?: string) {
-  let dates: string[] = []
-  if (startDate && endDate) {
-    const start = new Date(startDate + 'T12:00:00Z')
-    const end   = new Date(endDate   + 'T12:00:00Z')
-    const cur   = new Date(start)
-    while (cur <= end) { dates.push(cur.toISOString().slice(0, 10)); cur.setUTCDate(cur.getUTCDate() + 1) }
-  } else {
-    const now = new Date(); const day = now.getUTCDay()
-    const daysToSat = day === 6 ? 0 : day === 0 ? -1 : 6 - day
-    for (let i = 0; i <= 3; i++) {
-      const d = new Date(now); d.setUTCDate(now.getUTCDate() + daysToSat + i)
-      dates.push(d.toISOString().slice(0, 10))
-    }
-  }
-
-  const allMatches: any[] = []
-  for (const date of dates) {
-    const data = await tsdbFetch(`/eventsday.php?d=${date}&s=Soccer`)
-    const plMatches = (data.events ?? []).filter((e: any) =>
-      (e.strLeague ?? '').toLowerCase().includes('premier league')
-    )
-    allMatches.push(...plMatches.map((e: any) => ({ ...e, _date: date })))
-  }
-  if (!allMatches.length) return json({ message: 'Sin partidos de PL en el rango indicado', dates })
-
-  const inserted: any[] = []; const logs: string[] = []
-  for (const ev of allMatches) {
-    const isFinished = ev.intHomeScore != null && ev.intAwayScore != null
-    const row = {
-      competition: 'premier_league', sofascore_id: parseInt(ev.idEvent), stage: 'premier_league',
-      home_team_name: ev.strHomeTeam ?? '', away_team_name: ev.strAwayTeam ?? '',
-      match_date: ev.dateEvent ?? ev._date, match_time: utcToPanama(ev.strTime?.slice(0, 5)),
-      status: isFinished ? 'finished' : 'scheduled',
-      home_score: isFinished ? parseInt(ev.intHomeScore) : null,
-      away_score: isFinished ? parseInt(ev.intAwayScore) : null,
-    }
-    const { data: up, error } = await supabase.from('matches')
-      .upsert(row, { onConflict: 'sofascore_id' })
-      .select('id, home_team_name, away_team_name, status').single()
-    if (error) { logs.push(`Error: ${ev.strHomeTeam} vs ${ev.strAwayTeam}: ${error.message}`); continue }
-    inserted.push({ id: up?.id, match: `${row.home_team_name} vs ${row.away_team_name}`, date: row.match_date })
-    logs.push(isFinished
-      ? `✓ ${row.home_team_name} ${row.home_score}-${row.away_score} ${row.away_team_name}`
-      : `📅 ${row.home_team_name} vs ${row.away_team_name} @ ${row.match_date} ${row.match_time ?? ''}`)
-  }
-  return json({ dates, upserted: inserted.length, matches: inserted, logs })
-}
-
-// ── ACTION: results-pl — per-event PL sync (live + goals) ────────────────────
-async function syncResultsPL() {
-  const nowIso = new Date().toISOString()
-  const { data: dbMatches, error: dbErr } = await supabase
-    .from('matches')
-    .select('id, sofascore_id, home_team_name, away_team_name, home_team_id, away_team_id, match_date, match_time')
-    .eq('competition', 'premier_league').neq('status', 'finished')
-    .not('sofascore_id', 'is', null).lt('match_date', nowIso)
-
-  if (dbErr) return json({ error: dbErr.message }, 500)
-  if (!dbMatches?.length) return json({ message: 'Sin partidos PL pendientes de cierre', updated: 0 })
-
-  let updated = 0; const logs: string[] = []
-  for (const match of dbMatches) {
-    try {
-      const data = await tsdbFetch(`/lookupevent.php?id=${match.sofascore_id}`)
-      const ev   = data?.events?.[0]
-      if (!ev) { logs.push(`Sin datos: ${match.home_team_name} vs ${match.away_team_name}`); continue }
-
-      const status   = ev.strStatus ?? ''
-      const finished = FINISHED_STATUSES.has(status) || isTimeExpired(match.match_date as string, match.match_time as string | null)
-
-      if (!finished) {
-        const liveHome = ev.intHomeScore != null ? parseInt(ev.intHomeScore) : null
-        const liveAway = ev.intAwayScore != null ? parseInt(ev.intAwayScore) : null
-        const minute   = ev.intProgress  != null ? parseInt(ev.intProgress)  : null
-        await supabase.from('matches').update({
-          home_score: liveHome, away_score: liveAway, status: 'live',
-          ...(minute != null ? { match_minute: minute } : {}),
-        }).eq('id', match.id)
-        logs.push(`⏳ ${match.home_team_name} vs ${match.away_team_name}: ${status} ${liveHome ?? '?'}-${liveAway ?? '?'}${minute ? ` ${minute}'` : ''}`)
-        continue
-      }
-
-      const homeScore = parseInt(ev.intHomeScore)
-      const awayScore = parseInt(ev.intAwayScore)
-      if (isNaN(homeScore) || isNaN(awayScore)) { logs.push(`Sin score: ${match.home_team_name} vs ${match.away_team_name}`); continue }
-
-      const { error, firstGoalPlayer, primerGoleadorId, goalsCount } = await closeMatch(
-        match.id, match.sofascore_id as number, homeScore, awayScore,
-        match.home_team_id as string | null, match.away_team_id as string | null,
-      )
-      if (error) { logs.push(`DB error ${match.id}: ${error.message}`); continue }
-      logs.push(`✓ ${match.home_team_name} ${homeScore}-${awayScore} ${match.away_team_name}${firstGoalPlayer ? ` (⚽ ${firstGoalPlayer}${primerGoleadorId ? '' : ' — no en DB'}, ${goalsCount} goles)` : ''}`)
-      updated++
-    } catch (e: any) { logs.push(`Error ${match.home_team_name} vs ${match.away_team_name}: ${e.message}`) }
   }
   return json({ checked: dbMatches.length, updated, logs })
 }
@@ -490,28 +437,139 @@ async function syncTeamIds() {
   return json({ mapped, needsManual: manual })
 }
 
+// ── ACTION: score — calculate points for all finished matches ─────────────────
+async function scoreAll() {
+  const { data: matches, error } = await supabase
+    .from('matches')
+    .select('id, home_score, away_score, primer_goleador_real_id, home_team_name, away_team_name, home_team:home_team_id(name), away_team:away_team_id(name)')
+    .eq('status', 'finished')
+    .not('home_score', 'is', null)
+
+  if (error) return json({ error: error.message }, 500)
+  if (!matches?.length) return json({ message: 'Sin partidos terminados', scored: 0 })
+
+  let totalScored = 0; const logs: string[] = []
+  for (const match of matches) {
+    const home = (match as any).home_team_name || (match as any).home_team?.name || '?'
+    const away = (match as any).away_team_name || (match as any).away_team?.name || '?'
+    const scored = await scoreMatch(
+      match.id, match.home_score as number, match.away_score as number,
+      match.primer_goleador_real_id as string | null,
+    )
+    if (scored > 0) { logs.push(`✓ ${home} vs ${away}: ${scored} pred`); totalScored += scored }
+  }
+  logs.push(`Total: ${totalScored} predicciones puntuadas`)
+  return json({ matchesChecked: matches.length, totalScored, logs })
+}
+
+// ── ACTION: backfill — populate goals + lineups for already-finished matches ──
+async function backfill() {
+  const logs: string[] = []
+  let goalsUpdated = 0, lineupsUpdated = 0
+
+  // 1. Finished matches with goals IS NULL
+  const { data: noGoals, error: err1 } = await supabase
+    .from('matches')
+    .select('id, sofascore_id, home_team_name, away_team_name, home_team_id, away_team_id, home_team:home_team_id(name), away_team:away_team_id(name), home_score, away_score')
+    .eq('status', 'finished')
+    .not('sofascore_id', 'is', null)
+    .is('goals', null)
+
+  if (err1) return json({ error: err1.message }, 500)
+  logs.push(`Partidos terminados sin goles: ${noGoals?.length ?? 0}`)
+
+  for (const match of noGoals ?? []) {
+    const homeLabel = (match as any).home_team_name || (match as any).home_team?.name || '?'
+    const awayLabel = (match as any).away_team_name || (match as any).away_team?.name || '?'
+    const label     = `${homeLabel} vs ${awayLabel}`
+    try {
+      const goals = await fetchGoals(match.sofascore_id as number)
+      if (!goals.length) { logs.push(`Sin goles en API: ${label}`); continue }
+
+      const firstGoalPlayer  = goals[0]?.player ?? null
+      const primerGoleadorId = firstGoalPlayer
+        ? await resolveGoleador(firstGoalPlayer, match.home_team_id as string | null, match.away_team_id as string | null)
+        : null
+
+      const update: Record<string, any> = { goals }
+      if (primerGoleadorId) update.primer_goleador_real_id = primerGoleadorId
+
+      const { error } = await supabase.from('matches').update(update).eq('id', match.id)
+      if (error) { logs.push(`DB error ${label}: ${error.message}`); continue }
+      logs.push(`⚽ ${label}: ${goals.length} goles${firstGoalPlayer ? ` (1er: ${firstGoalPlayer}${primerGoleadorId ? '' : ' — no en DB'})` : ''}`)
+      goalsUpdated++
+    } catch (e: any) { logs.push(`Error goles ${label}: ${e.message}`) }
+  }
+
+  // 2. Finished matches in last 14 days with lineup_home IS NULL
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const { data: noLineups, error: err2 } = await supabase
+    .from('matches')
+    .select('id, sofascore_id, home_team_name, home_team:home_team_id(name)')
+    .eq('status', 'finished')
+    .not('sofascore_id', 'is', null)
+    .is('lineup_home', null)
+    .gte('match_date', since)
+
+  if (err2) return json({ error: err2.message }, 500)
+  logs.push(`Partidos terminados sin alineaciones (últimos 14 días): ${noLineups?.length ?? 0}`)
+
+  for (const match of noLineups ?? []) {
+    const label = (match as any).home_team_name || (match as any).home_team?.name || `event ${match.sofascore_id}`
+    try {
+      const data   = await tsdbV2Fetch(`/lookup/event_lineups/${match.sofascore_id}`)
+      const lineup: any[] = data?.lineup ?? data?.lineups ?? []
+      if (!lineup.length) { logs.push(`Sin alineación en API: ${label}`); continue }
+
+      const teamNames = [...new Set(lineup.map((p: any) => p.strTeam).filter(Boolean))]
+      const parse = (teamName: string) => lineup
+        .filter((p: any) => p.strTeam === teamName)
+        .map((p: any) => ({
+          name:     p.strPlayer ?? null,
+          number:   p.intSquadNumber ? parseInt(p.intSquadNumber) : null,
+          position: p.strPosition ?? null,
+          sub:      p.strSubstitute === 'Yes' || p.strSubstitute === 'True',
+        }))
+        .filter((p: any) => p.name)
+        .sort((a: any, b: any) => (a.number ?? 99) - (b.number ?? 99))
+
+      const homeLineup = teamNames[0] ? parse(teamNames[0]) : []
+      const awayLineup = teamNames[1] ? parse(teamNames[1]) : []
+      if (!homeLineup.length && !awayLineup.length) { logs.push(`Alineación vacía: ${label}`); continue }
+
+      const { error } = await supabase.from('matches').update({
+        lineup_home: homeLineup.length ? homeLineup : null,
+        lineup_away: awayLineup.length ? awayLineup : null,
+      }).eq('id', match.id)
+      if (error) { logs.push(`DB error alineación ${label}: ${error.message}`); continue }
+      logs.push(`✓ Alineación ${label}: ${homeLineup.filter((p: any) => !p.sub).length}+${awayLineup.filter((p: any) => !p.sub).length} titulares`)
+      lineupsUpdated++
+    } catch (e: any) { logs.push(`Error alineación ${label}: ${e.message}`) }
+  }
+
+  return json({ goalsUpdated, lineupsUpdated, logs })
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
     const url    = new URL(req.url)
     const action = url.searchParams.get('action') ?? 'discover'
-    const start  = url.searchParams.get('start') ?? undefined
-    const end    = url.searchParams.get('end')   ?? undefined
 
     if (action === 'discover')    return await discover()
     if (action === 'matches')     return await syncMatches()
     if (action === 'results')     return await syncResults()
     if (action === 'results-wc')  return await syncResultsWC()
-    if (action === 'results-pl')  return await syncResultsPL()
-    if (action === 'premier')     return await syncPremier(start, end)
     if (action === 'lineups')     return await syncLineups()
     if (action === 'h2h')         return await syncH2H()
     if (action === 'players')     return await syncPlayers()
     if (action === 'team-ids')    return await syncTeamIds()
+    if (action === 'backfill')    return await backfill()
+    if (action === 'score')       return await scoreAll()
 
     return json({
       error:   `Acción desconocida: "${action}"`,
-      actions: ['discover', 'matches', 'results', 'results-wc', 'results-pl', 'premier', 'lineups', 'h2h', 'players', 'team-ids'],
+      actions: ['discover', 'matches', 'results', 'results-wc', 'lineups', 'h2h', 'players', 'team-ids', 'backfill', 'score'],
     }, 400)
   } catch (err: any) {
     console.error(err)

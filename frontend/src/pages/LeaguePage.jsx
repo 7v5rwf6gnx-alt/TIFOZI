@@ -17,13 +17,6 @@ const WC_MATCH_SELECT = `
   away_team:away_team_id(id, name, code, flag_url),
   group:group_id(name)
 `
-const PL_MATCH_SELECT = `
-  id, match_date, match_time, home_score, away_score, status, competition, sofascore_id,
-  match_minute, goals, lineup_home, lineup_away, h2h,
-  home_team_name, away_team_name,
-  home_team:home_team_id(id, name, code, flag_url),
-  away_team:away_team_id(id, name, code, flag_url)
-`
 
 // ── Animated number ───────────────────────────────────────────────────────────
 function AnimatedNumber({ value, duration = 900 }) {
@@ -100,18 +93,15 @@ function PicksGrid({ rankingRows, matches, predMap }) {
       <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
         <div className="flex items-end mb-2">
           <div style={{ minWidth: 172, flexShrink: 0 }} />
-          {matches.map(m => {
-            const isClubLogo = m.competition === 'premier_league'
-            return (
-              <div key={m.id} style={{ width: 50, flexShrink: 0 }}
-                   className="flex flex-col items-center gap-0.5 px-1">
-                <img src={isClubLogo ? m.home_team?.flag_url : hi(m.home_team?.flag_url)} alt=""
-                     style={{ width: 20, height: 20, objectFit: isClubLogo ? 'contain' : 'cover', borderRadius: isClubLogo ? '50%' : 3, opacity: 0.7, backgroundColor: isClubLogo ? '#222' : 'transparent' }} />
-                <img src={isClubLogo ? m.away_team?.flag_url : hi(m.away_team?.flag_url)} alt=""
-                     style={{ width: 20, height: 20, objectFit: isClubLogo ? 'contain' : 'cover', borderRadius: isClubLogo ? '50%' : 3, opacity: 0.7, backgroundColor: isClubLogo ? '#222' : 'transparent' }} />
-              </div>
-            )
-          })}
+          {matches.map(m => (
+            <div key={m.id} style={{ width: 50, flexShrink: 0 }}
+                 className="flex flex-col items-center gap-0.5 px-1">
+              <img src={hi(m.home_team?.flag_url)} alt=""
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+              <img src={hi(m.away_team?.flag_url)} alt=""
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+            </div>
+          ))}
         </div>
 
         {rankingRows.map((row, idx) => (
@@ -171,8 +161,6 @@ function RankingTab({ ligaId, userId, torneo }) {
   const [loading, setLoading]   = useState(true)
   const [view, setView]         = useState('tabla')
   const [expandedRow, setExpandedRow] = useState(null)
-  const isPL = torneo === 'premier_league'
-
   useEffect(() => {
     async function load() {
       const { data: rankData } = await supabase
@@ -187,16 +175,10 @@ function RankingTab({ ligaId, userId, torneo }) {
       if (rowsData.length > 0) {
         const memberIds = rowsData.map(r => r.user_id)
 
-        const matchQuery = isPL
-          ? supabase.from('matches')
-              .select('id, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code, name), away_team:away_team_id(flag_url, code, name)')
-              .eq('competition', 'premier_league').order('match_date')
-          : supabase.from('matches')
-              .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
-              .eq('stage', 'group').order('match_number')
-
         const [{ data: mData }, { data: pData }] = await Promise.all([
-          matchQuery,
+          supabase.from('matches')
+            .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
+            .eq('stage', 'group').order('match_number'),
           supabase.from('predictions')
             .select('user_id, match_id, home_score, away_score, points_earned, bonus_goleador')
             .in('user_id', memberIds),
@@ -212,7 +194,7 @@ function RankingTab({ ligaId, userId, torneo }) {
       setLoading(false)
     }
     load()
-  }, [ligaId, isPL])
+  }, [ligaId])
 
   const weeks = useMemo(() => {
     if (matches.length === 0) return []
@@ -493,15 +475,14 @@ function RankingTab({ ligaId, userId, torneo }) {
 
 // ── Pick Distribution ─────────────────────────────────────────────────────────
 function PickDistribution({ match, stats, members, viewMode, myUserId }) {
-  const isPL       = match.competition === 'premier_league'
-  const groupColor = isPL ? '#9B59D0' : (GROUP_COLORS[match.group?.name] ?? '#1B4FD8')
+  const groupColor = GROUP_COLORS[match.group?.name] ?? '#1B4FD8'
   const memberMap  = Object.fromEntries((members || []).map(m => [m.usuario_id, m.profiles?.username]))
   const total      = stats?.total ?? 0
 
   const outcomes = [
-    { key: 'homeWin', label: match.home_team?.name ?? match.home_team_name, flagUrl: match.home_team?.flag_url, color: groupColor, isPL, ...(stats?.homeWin ?? { count: 0, pct: 0, userIds: [] }) },
-    { key: 'draw',    label: 'Empate',                                       flagUrl: null,                       color: '#6B7280',   isPL, ...(stats?.draw    ?? { count: 0, pct: 0, userIds: [] }) },
-    { key: 'awayWin', label: match.away_team?.name ?? match.away_team_name, flagUrl: match.away_team?.flag_url, color: '#E8122D',   isPL, ...(stats?.awayWin ?? { count: 0, pct: 0, userIds: [] }) },
+    { key: 'homeWin', label: match.home_team?.name ?? match.home_team_name, flagUrl: match.home_team?.flag_url, color: groupColor, ...(stats?.homeWin ?? { count: 0, pct: 0, userIds: [] }) },
+    { key: 'draw',    label: 'Empate',                                       flagUrl: null,                       color: '#6B7280',  ...(stats?.draw    ?? { count: 0, pct: 0, userIds: [] }) },
+    { key: 'awayWin', label: match.away_team?.name ?? match.away_team_name, flagUrl: match.away_team?.flag_url, color: '#E8122D',  ...(stats?.awayWin ?? { count: 0, pct: 0, userIds: [] }) },
   ]
 
   return (
@@ -519,17 +500,13 @@ function PickDistribution({ match, stats, members, viewMode, myUserId }) {
         <>
           <div className="flex justify-between text-xs text-gray-500 mb-1.5">
             <span className="flex items-center gap-1">
-              {match.home_team?.flag_url && (isPL
-                ? <img src={match.home_team.flag_url} style={{ width: 14, height: 14, objectFit: 'contain' }} alt="" />
-                : <Flag src={match.home_team.flag_url} size={14} />)}
+              {match.home_team?.flag_url && <Flag src={match.home_team.flag_url} size={14} />}
               <span className="truncate max-w-[90px]">{match.home_team?.name ?? match.home_team_name}</span>
             </span>
             <span>Empate</span>
             <span className="flex items-center gap-1">
               <span className="truncate max-w-[90px]">{match.away_team?.name ?? match.away_team_name}</span>
-              {match.away_team?.flag_url && (isPL
-                ? <img src={match.away_team.flag_url} style={{ width: 14, height: 14, objectFit: 'contain' }} alt="" />
-                : <Flag src={match.away_team.flag_url} size={14} />)}
+              {match.away_team?.flag_url && <Flag src={match.away_team.flag_url} size={14} />}
             </span>
           </div>
           <div className="flex rounded-full overflow-hidden h-6 gap-[2px] bg-white/5">
@@ -557,9 +534,7 @@ function PickDistribution({ match, stats, members, viewMode, myUserId }) {
             <div key={o.key}>
               <div className="flex items-center gap-2 mb-1.5">
                 {o.flagUrl
-                  ? (o.isPL
-                    ? <img src={o.flagUrl} style={{ width: 16, height: 16, objectFit: 'contain', flexShrink: 0 }} alt="" />
-                    : <Flag src={o.flagUrl} size={16} />)
+                  ? <Flag src={o.flagUrl} size={16} />
                   : <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: o.color }} />}
                 <span className="text-xs font-bold" style={{ color: o.color }}>{o.label}</span>
                 <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
@@ -596,14 +571,10 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const [loading, setLoading]             = useState(true)
   const [filter, setFilter]               = useState('all')
   const [selectedDay, setSelectedDay]     = useState(null)
-  const isPL = torneo === 'premier_league'
-
   useEffect(() => {
     if (!userId) return
     async function load() {
-      const matchQuery = isPL
-        ? supabase.from('matches').select(PL_MATCH_SELECT).eq('competition', 'premier_league').order('match_date')
-        : supabase.from('matches').select(WC_MATCH_SELECT).eq('stage', 'group').order('match_number')
+      const matchQuery = supabase.from('matches').select(WC_MATCH_SELECT).eq('stage', 'group').order('match_number')
 
       const [{ data: matchData }, { data: predData }] = await Promise.all([
         matchQuery,
@@ -626,7 +597,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
       setLoading(false)
     }
     load()
-  }, [ligaId, userId, isPL])
+  }, [ligaId, userId])
 
   const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
     const { data } = await supabase.from('predictions')
@@ -640,14 +611,13 @@ function MatchesTab({ ligaId, userId, torneo }) {
     if (data) setMyPredictions(prev => ({ ...prev, [matchId]: data }))
   }, [userId])
 
-  const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
-  const groups = isPL ? [] : [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
+  const groups = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
 
   const days = useMemo(() =>
     [...new Set(matches.map(m => (m.match_date ?? '').slice(0, 10)).filter(Boolean))].sort()
   , [matches])
 
-  const groupFiltered = (!isPL && filter !== 'all') ? matches.filter(m => m.group?.name === filter) : matches
+  const groupFiltered = filter !== 'all' ? matches.filter(m => m.group?.name === filter) : matches
   const dayMatches    = selectedDay ? groupFiltered.filter(m => (m.match_date ?? '').slice(0, 10) === selectedDay) : groupFiltered
 
   if (loading) return <SkeletonRanking />
@@ -655,8 +625,8 @@ function MatchesTab({ ligaId, userId, torneo }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="animate-slide-up">
 
-      {/* Group filter (WC only) */}
-      {!isPL && groups.length > 0 && (
+      {/* Group filter */}
+      {groups.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {['all', ...groups].map(g => (
             <button key={g} onClick={() => setFilter(g)}
@@ -683,7 +653,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
                 className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
                   isActive ? 'text-white border-transparent' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/25'
                 }`}
-                style={isActive ? { backgroundColor: accentColor } : {}}>
+                style={isActive ? { backgroundColor: '#1B4FD8' } : {}}>
                 {hasLive && <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />}
                 {label.toUpperCase()}
               </button>
@@ -769,10 +739,7 @@ export default function LeaguePage() {
       setLiga(ligaData)
       setMemberCount(mCount || 0)
 
-      // Match count for this torneo
-      const { count: mc } = await (ligaData.torneo === 'premier_league'
-        ? supabase.from('matches').select('*', { count: 'exact', head: true }).eq('competition', 'premier_league')
-        : supabase.from('matches').select('*', { count: 'exact', head: true }).eq('stage', 'group'))
+      const { count: mc } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('stage', 'group')
       setMatchCount(mc || 0)
       setLoading(false)
     }
@@ -799,8 +766,6 @@ export default function LeaguePage() {
     </div>
   )
 
-  const isPL        = liga.torneo === 'premier_league'
-  const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
   const inviteUrl   = `${window.location.origin}/unirse/${liga.codigo_invitacion}`
   const qrUrl       = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(inviteUrl)}&size=180x180&bgcolor=1a1a1a&color=ffffff&qzone=1`
 
@@ -826,12 +791,8 @@ export default function LeaguePage() {
           <div className="flex items-start gap-4">
             {/* League avatar with glow */}
             <div className="glow-pulse w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
-                 style={{
-                   background: isPL
-                     ? 'linear-gradient(135deg, #3D0070, #9B59D0)'
-                     : 'linear-gradient(135deg, #1B4FD8, #E8122D)',
-                 }}>
-              <span className="font-display text-xl font-black text-white/80">{isPL ? 'PL' : 'WC'}</span>
+                 style={{ background: 'linear-gradient(135deg, #1B4FD8, #E8122D)' }}>
+              <span className="font-display text-xl font-black text-white/80">WC</span>
             </div>
 
             <div className="flex-1 min-w-0">

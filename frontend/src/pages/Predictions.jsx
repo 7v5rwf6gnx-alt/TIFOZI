@@ -4,15 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { MatchPredictionCard, GROUP_COLORS } from '../components/MatchPredictionCard'
 import { AvatarDisplay } from '../components/AvatarDisplay'
-import PLStandings from '../components/PLStandings'
-
-const PL_MATCH_SELECT = `
-  id, match_date, match_time, home_score, away_score, status, competition, sofascore_id,
-  match_minute, goals, lineup_home, lineup_away, h2h,
-  home_team_name, away_team_name,
-  home_team:home_team_id(id, name, code, flag_url),
-  away_team:away_team_id(id, name, code, flag_url)
-`
 
 // ── Mini ranking widget ───────────────────────────────────────────────────────
 function MiniRanking({ userId }) {
@@ -125,17 +116,10 @@ function MiniRanking({ userId }) {
 export default function Predictions() {
   const { user } = useAuth()
 
-  const [tab, setTab] = useState('mundial')
-
   const [matches, setMatches]             = useState([])
   const [predictions, setPredictions]     = useState({})
-  const [loadingWC, setLoadingWC]         = useState(true)
+  const [loading, setLoading]             = useState(true)
   const [selectedGroup, setSelectedGroup] = useState('all')
-
-  const [plMatches, setPlMatches]         = useState([])
-  const [plPredictions, setPlPredictions] = useState({})
-  const [loadingPL, setLoadingPL]         = useState(true)
-
 
   useEffect(() => {
     async function load() {
@@ -160,31 +144,7 @@ export default function Predictions() {
       const predMap = {}
       for (const p of predData || []) predMap[p.match_id] = p
       setPredictions(predMap)
-
-      setLoadingWC(false)
-    }
-    load()
-  }, [user.id])
-
-  useEffect(() => {
-    async function load() {
-      const [{ data: matchData }, { data: predData }] = await Promise.all([
-        supabase
-          .from('matches')
-          .select(PL_MATCH_SELECT)
-          .eq('competition', 'premier_league')
-          .order('match_date'),
-        supabase
-          .from('predictions')
-          .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-          .eq('user_id', user.id),
-      ])
-      setPlMatches(matchData || [])
-      const predMap = {}
-      for (const p of predData || []) predMap[p.match_id] = p
-      setPlPredictions(predMap)
-
-      setLoadingPL(false)
+      setLoading(false)
     }
     load()
   }, [user.id])
@@ -202,35 +162,14 @@ export default function Predictions() {
     if (data) setPredictions(prev => ({ ...prev, [matchId]: data }))
   }, [user.id])
 
-  const handleSavePL = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
-    const { data } = await supabase
-      .from('predictions')
-      .upsert({
-        user_id: user.id, match_id: matchId,
-        home_score: homeScore, away_score: awayScore,
-        primer_goleador_prediccion_id: goalscorerId ?? null,
-      }, { onConflict: 'user_id,match_id' })
-      .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-      .single()
-    if (data) setPlPredictions(prev => ({ ...prev, [matchId]: data }))
-  }, [user.id])
-
-  const groupNames  = [...new Set(matches.map(m => m.group?.name))].sort()
-  const filtered    = selectedGroup === 'all' ? matches : matches.filter(m => m.group?.name === selectedGroup)
-  const byDate      = filtered.reduce((acc, m) => {
+  const groupNames = [...new Set(matches.map(m => m.group?.name))].sort()
+  const filtered   = selectedGroup === 'all' ? matches : matches.filter(m => m.group?.name === selectedGroup)
+  const byDate     = filtered.reduce((acc, m) => {
     const d = m.match_date?.slice(0, 10)
     if (!acc[d]) acc[d] = []
     acc[d].push(m)
     return acc
   }, {})
-
-  const plByDate = plMatches.reduce((acc, m) => {
-    const d = m.match_date?.slice(0, 10)
-    if (!acc[d]) acc[d] = []
-    acc[d].push(m)
-    return acc
-  }, {})
-  const plPredCount = Object.keys(plPredictions).filter(id => plMatches.some(m => m.id === id)).length
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
@@ -238,34 +177,8 @@ export default function Predictions() {
       {/* Mini ranking */}
       <MiniRanking userId={user.id} />
 
-      {/* Tab switcher */}
-      <div className="flex gap-1.5 mb-8 p-1 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-        <button onClick={() => setTab('mundial')}
-          className={`flex-1 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
-            tab === 'mundial' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={tab === 'mundial' ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
-          MUNDIAL 2026
-        </button>
-        <button onClick={() => setTab('premier')}
-          className={`flex-1 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
-            tab === 'premier' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={tab === 'premier' ? { backgroundColor: '#3D0070' } : {}}>
-          PRONÓSTICOS PL
-        </button>
-        <button onClick={() => setTab('tabla')}
-          className={`flex-1 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
-            tab === 'tabla' ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-          }`}
-          style={tab === 'tabla' ? { backgroundColor: '#3D0070' } : {}}>
-          TABLA PL
-        </button>
-      </div>
+      <>
 
-      {/* MUNDIAL */}
-      {tab === 'mundial' && (
-        <>
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="font-display text-sm tracking-widest text-gray-500 uppercase mb-1">Mundial 2026</p>
@@ -294,7 +207,7 @@ export default function Predictions() {
             ))}
           </div>
 
-          {loadingWC ? (
+          {loading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -353,89 +266,7 @@ export default function Predictions() {
               ))}
             </div>
           )}
-        </>
-      )}
-
-      {/* PREMIER */}
-      {tab === 'premier' && (
-        <>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="font-display text-sm tracking-widest text-gray-500 uppercase mb-1">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</p>
-              <h1 className="font-display text-5xl text-white tracking-wide">MIS PRONÓSTICOS</h1>
-            </div>
-            <div className="text-right">
-              <p className="font-display text-4xl" style={{ color: '#9B59D0' }}>{plPredCount}</p>
-              <p className="text-gray-500 text-xs">de {plMatches.length}</p>
-            </div>
-          </div>
-          <p className="text-gray-500 mb-8 text-sm">3 pts exacto · 1 pt resultado · +2 pts goleador</p>
-
-          {loadingPL ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.08 }}
-                  className="rounded-2xl overflow-hidden"
-                  style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.06)', borderLeft: '4px solid rgba(255,255,255,0.08)' }}>
-                  <div className="px-5 py-4 space-y-4">
-                    <div className="flex justify-between">
-                      <div className="skeleton h-3 w-24 rounded" />
-                      <div className="skeleton h-3 w-16 rounded" />
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex flex-col items-center gap-2 flex-1">
-                        <div className="skeleton w-10 h-7 rounded" />
-                        <div className="skeleton h-3 w-20 rounded" />
-                      </div>
-                      <div className="flex gap-2">
-                        <div className="skeleton w-14 h-14 rounded-xl" />
-                        <div className="skeleton w-5 h-14 rounded" />
-                        <div className="skeleton w-14 h-14 rounded-xl" />
-                      </div>
-                      <div className="flex flex-col items-center gap-2 flex-1">
-                        <div className="skeleton w-10 h-7 rounded" />
-                        <div className="skeleton h-3 w-20 rounded" />
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : plMatches.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">Sin partidos disponibles</div>
-          ) : (
-            <div className="space-y-8">
-              {Object.entries(plByDate).map(([date, dayMatches], dateIdx) => (
-                <motion.div key={date}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: dateIdx * 0.08, duration: 0.4 }}>
-                  <p className="font-display text-sm tracking-widest uppercase mb-3" style={{ color: '#9B59D0' }}>
-                    {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
-                  </p>
-                  <div className="space-y-3">
-                    {dayMatches.map((match, matchIdx) => (
-                      <motion.div key={match.id}
-                        initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: dateIdx * 0.06 + matchIdx * 0.05, duration: 0.35 }}>
-                        <MatchPredictionCard
-                          match={match}
-                          prediction={plPredictions[match.id]}
-                          onSave={handleSavePL}
-                        />
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === 'tabla' && <PLStandings />}
+      </>
     </div>
   )
 }

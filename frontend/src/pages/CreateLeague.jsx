@@ -14,16 +14,6 @@ const TORNEOS = [
     bg: 'rgba(27,79,216,0.12)',
     border: 'rgba(27,79,216,0.4)',
   },
-  {
-    id: 'premier_league',
-    icon: 'PL',
-    title: 'PREMIER',
-    subtitle: 'LEAGUE',
-    desc: '2024/25',
-    color: '#9B59D0',
-    bg: 'rgba(61,0,112,0.18)',
-    border: 'rgba(155,89,208,0.4)',
-  },
 ]
 
 export default function CreateLeague() {

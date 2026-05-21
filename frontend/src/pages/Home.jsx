@@ -320,9 +320,7 @@ function rankStyle(rank, total) {
 }
 
 function LeagueCard({ liga, index }) {
-  const col  = rankStyle(liga.myRank, liga.memberCount)
-  const isPL = liga.torneo === 'premier_league'
-  const accentColor = isPL ? '#9B59D0' : '#1B4FD8'
+  const col = rankStyle(liga.myRank, liga.memberCount)
 
   return (
     <motion.div
@@ -337,7 +335,7 @@ function LeagueCard({ liga, index }) {
 
           {/* Icon */}
           <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
-               style={{ background:`linear-gradient(135deg, ${accentColor}, #E8122D)` }}>
+               style={{ background:'linear-gradient(135deg, #1B4FD8, #E8122D)' }}>
             🏆
           </div>
 
@@ -351,7 +349,7 @@ function LeagueCard({ liga, index }) {
               </span>
             </div>
             <p className="text-xs mt-0.5 mb-2">
-              <span style={{ color:accentColor }}>{isPL ? 'Premier League' : 'Mundial 2026'}</span>
+              <span style={{ color: '#1B4FD8' }}>Mundial 2026</span>
               <span className="text-gray-600"> · {liga.memberCount} {liga.memberCount === 1 ? 'miembro' : 'miembros'}</span>
             </p>
             <div className="flex items-center justify-between">

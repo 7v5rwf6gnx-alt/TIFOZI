@@ -6,8 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { AvatarDisplay } from '../components/AvatarDisplay'
 
 const TORNEO_META = {
-  mundial_2026:   { icon: '🌍', label: 'Mundial 2026',    color: '#1B4FD8' },
-  premier_league: { icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', label: 'Premier League', color: '#9B59D0' },
+  mundial_2026: { icon: '🌍', label: 'Mundial 2026', color: '#1B4FD8' },
 }
 
 function rankColor(rank) {
