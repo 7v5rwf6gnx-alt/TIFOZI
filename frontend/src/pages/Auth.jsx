@@ -13,6 +13,7 @@ export default function Auth() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
+  const [phone, setPhone]       = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [success, setSuccess]   = useState('')
@@ -41,9 +42,9 @@ export default function Auth() {
       if (err) setError(err.message)
       else navigate(returnTo)
     } else {
-      const { error: err } = await signUp(email, password, username.trim(), fullName.trim())
+      const { error: err } = await signUp(email, password, username.trim(), fullName.trim(), phone.trim() || null)
       if (err) setError(err.message)
-      else setSuccess('¡Listo! Revisá tu email para confirmar el registro.')
+      else setSuccess('¡Cuenta creada! Ya podés ingresar.')
     }
     setLoading(false)
   }
@@ -110,6 +111,18 @@ export default function Auth() {
                     autoComplete="username"
                   />
                   <p className="text-gray-600 text-[11px] mt-1">Sin espacios · mínimo 3 caracteres</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-bold block mb-1.5 uppercase tracking-wide">
+                    Teléfono (opcional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone} onChange={e => setPhone(e.target.value)}
+                    className="input-dark"
+                    placeholder="+54 9 11 1234-5678"
+                    autoComplete="tel"
+                  />
                 </div>
               </>
             )}

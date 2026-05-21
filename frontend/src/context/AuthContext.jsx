@@ -44,11 +44,11 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
-  const signUp = (email, password, username, fullName) =>
+  const signUp = (email, password, username, fullName, phone) =>
     supabase.auth.signUp({
       email,
       password,
-      options: { data: { username, full_name: fullName } },
+      options: { data: { username, full_name: fullName, phone } },
     })
 
   const signInWithGoogle = () =>
