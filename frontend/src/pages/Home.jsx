@@ -11,7 +11,8 @@ import { Flag } from '../components/FlagPair'
 // ─────────────────────────────────────────────────────────────────────────────
 const KICKOFF_UTC = new Date('2026-06-11T19:00:00Z')
 const WC_LOGO    = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/2026_FIFA_World_Cup_emblem_%28without_trophy%29.svg/500px-2026_FIFA_World_Cup_emblem_%28without_trophy%29.svg.png'
-const NEWS_URL   = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.espn.com%2Fespn%2Frss%2Fsoccer%2Fnews&count=8'
+const NEWS_URL        = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.espn.com%2Fespn%2Frss%2Fsoccer%2Fnews&count=8'
+const SQUAD_NEWS_URL  = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://news.google.com/rss/search?q=convocatoria+mundial+2026+seleccion&hl=es-419&gl=US&ceid=US:es-419')}&count=12`
 
 const GROUP_COLORS = {
   A:'#1B4FD8',B:'#E8122D',C:'#00A550',D:'#1B4FD8',
@@ -658,6 +659,71 @@ function NewsSection({ news, loading }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 5b. CONVOCATORIAS
+// ─────────────────────────────────────────────────────────────────────────────
+function SquadNewsCard({ item, index }) {
+  const source = item.author || item.source?.name || 'Noticias'
+  return (
+    <motion.a href={item.link} target="_blank" rel="noopener noreferrer"
+      initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={{ y:-4 }}
+      className="shrink-0 w-60 sm:w-72 rounded-2xl overflow-hidden border border-white/8 flex flex-col"
+      style={{ background:'#1A1A1A' }}>
+      {item.thumbnail && item.thumbnail.startsWith('http') ? (
+        <div className="h-32 overflow-hidden bg-[#111]">
+          <img src={item.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" />
+        </div>
+      ) : (
+        <div className="h-32 flex items-center justify-center text-4xl"
+             style={{ background:'linear-gradient(135deg, #0A1628 0%, #1B4FD8 100%)' }}>
+          📋
+        </div>
+      )}
+      <div className="p-3.5 flex flex-col flex-1">
+        <p className="text-white text-xs font-bold leading-snug line-clamp-3 mb-2 flex-1">{item.title}</p>
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+          <span className="text-gray-600 text-[11px] truncate">{source}</span>
+          <span className="text-gray-600 text-[11px] shrink-0 ml-1">{timeAgo(item.pubDate)}</span>
+        </div>
+      </div>
+    </motion.a>
+  )
+}
+
+function SquadNewsSection({ news, loading }) {
+  return (
+    <FadeIn className="py-12">
+      <div className="max-w-6xl mx-auto px-4 mb-6">
+        <p className="font-display text-xs tracking-widest text-gray-500 uppercase mb-1">Previo al Mundial</p>
+        <h2 className="font-display text-4xl sm:text-5xl text-white tracking-wide">CONVOCATORIAS</h2>
+        <p className="text-gray-500 text-sm mt-1">Selecciones que ya confirmaron su plantel para USA · CAN · MEX 2026</p>
+      </div>
+
+      {loading ? (
+        <div className="flex gap-4 px-4 sm:px-8 overflow-hidden">
+          {[...Array(4)].map((_,i) => <div key={i} className="skeleton shrink-0 w-64 h-52 rounded-2xl" />)}
+        </div>
+      ) : news.length === 0 ? (
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="card p-10 text-center">
+            <div className="text-5xl mb-3">📋</div>
+            <p className="text-white font-black text-lg mb-1">Convocatorias próximamente</p>
+            <p className="text-gray-500 text-sm">Las noticias de convocatorias aparecerán aquí.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto px-4 sm:px-8 pb-3"
+             style={{ scrollbarWidth:'none', msOverflowStyle:'none' }}>
+          {news.map((item,i) => <SquadNewsCard key={i} item={item} index={i} />)}
+          <div className="w-2 shrink-0" />
+        </div>
+      )}
+    </FadeIn>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 6. STATS GLOBALES
 // ─────────────────────────────────────────────────────────────────────────────
 function StatCounter({ value, suffix = '', label, color, trigger }) {
@@ -712,17 +778,24 @@ export default function Home() {
   const [topUsers,    setTopUsers]  = useState([])
   const [myEntry,     setMyEntry]   = useState(null)
   const [stats,       setStats]     = useState({ totalPoints:0, predictionCount:0, leagueCount:0, globalRank:null })
-  const [news,        setNews]      = useState([])
-  const [dataLoading, setDataLoading] = useState(true)
-  const [newsLoading, setNewsLoading] = useState(true)
+  const [news,            setNews]            = useState([])
+  const [squadNews,       setSquadNews]       = useState([])
+  const [dataLoading,     setDataLoading]     = useState(true)
+  const [newsLoading,     setNewsLoading]     = useState(true)
+  const [squadNewsLoading, setSquadNewsLoading] = useState(true)
 
-  // News fetch (independent)
+  // News fetches (independent)
   useEffect(() => {
     fetch(NEWS_URL)
       .then(r => r.json())
       .then(d => { if (d.status === 'ok') setNews(d.items || []) })
       .catch(() => {})
       .finally(() => setNewsLoading(false))
+    fetch(SQUAD_NEWS_URL)
+      .then(r => r.json())
+      .then(d => { if (d.status === 'ok') setSquadNews(d.items || []) })
+      .catch(() => {})
+      .finally(() => setSquadNewsLoading(false))
   }, [])
 
   // Main data fetch
@@ -865,8 +938,15 @@ export default function Home() {
 
       <Divider from="#131313" to="#111111" />
 
-      {/* 6. News */}
-      <NewsSection news={news} loading={newsLoading} />
+      {/* 6. Convocatorias */}
+      <SquadNewsSection news={squadNews} loading={squadNewsLoading} />
+
+      <Divider from="#111111" to="#131313" />
+
+      {/* 7. News */}
+      <div style={{ backgroundColor:'#131313' }}>
+        <NewsSection news={news} loading={newsLoading} />
+      </div>
 
       {/* 7. Stats globales */}
       <StatsSection />
