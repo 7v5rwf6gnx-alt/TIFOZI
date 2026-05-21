@@ -162,6 +162,11 @@ export default function Predictions() {
     if (data) setPredictions(prev => ({ ...prev, [matchId]: data }))
   }, [user.id])
 
+  const handleDelete = useCallback(async (matchId) => {
+    await supabase.from('predictions').delete().match({ user_id: user.id, match_id: matchId })
+    setPredictions(prev => { const next = { ...prev }; delete next[matchId]; return next })
+  }, [user.id])
+
   const groupNames = [...new Set(matches.map(m => m.group?.name))].sort()
   const filtered   = selectedGroup === 'all' ? matches : matches.filter(m => m.group?.name === selectedGroup)
   const byDate     = filtered.reduce((acc, m) => {
@@ -258,6 +263,7 @@ export default function Predictions() {
                           match={match}
                           prediction={predictions[match.id]}
                           onSave={handleSave}
+                          onDelete={handleDelete}
                         />
                       </motion.div>
                     ))}

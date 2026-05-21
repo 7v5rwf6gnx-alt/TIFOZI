@@ -451,7 +451,7 @@ function useKickoffCd(match) {
 }
 
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave }) {
+export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
@@ -462,6 +462,8 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
   const [saved, setSaved]               = useState(false)
   const [shake, setShake]               = useState(false)
   const [showToast, setShowToast]       = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting]           = useState(false)
   const countdown = useLiveCountdown(match)
   const { label: cdLabel, cdColor, cdBg, cdBorder } = useKickoffCd(match)
   const { liveData, dbMinute } = useLiveScore(match)
@@ -485,6 +487,14 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
     setSaving(false); setSaved(true); setShowToast(true)
     setTimeout(() => setSaved(false), 2000)
     setTimeout(() => setShowToast(false), 2500)
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000); return }
+    setDeleting(true)
+    await onDelete(match.id)
+    setHomeScore(''); setAwayScore(''); setGoalscorerId(null)
+    setConfirmDelete(false); setDeleting(false)
   }
 
   const pointsLabel = finished && pts != null
@@ -618,7 +628,7 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
 
       {/* Save button */}
       {!locked && (
-        <div className="px-5 pb-4 flex justify-center relative">
+        <div className="px-5 pb-4 flex items-center justify-center gap-3 relative">
           <AnimatePresence>
             {showToast && (
               <motion.div
@@ -644,6 +654,18 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
             style={!saved ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}>
             {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar pronóstico'}
           </button>
+          {onDelete && prediction?.home_score != null && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="font-bold text-xs px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+              style={confirmDelete
+                ? { backgroundColor: 'rgba(220,38,38,0.2)', color: '#F87171', border: '1px solid rgba(220,38,38,0.4)' }
+                : { backgroundColor: 'rgba(255,255,255,0.05)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.1)' }
+              }>
+              {deleting ? '...' : confirmDelete ? '¿Confirmar?' : '🗑'}
+            </button>
+          )}
         </div>
       )}
 
