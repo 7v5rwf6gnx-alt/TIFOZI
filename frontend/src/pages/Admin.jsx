@@ -412,14 +412,127 @@ function LigasTab() {
   )
 }
 
+// ── Solicitudes tab ───────────────────────────────────────────────────────────
+function SolicitudesTab() {
+  const [solicitudes, setSolicitudes] = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [acting, setActing]           = useState(null)
+
+  useEffect(() => {
+    supabase
+      .from('liga_solicitudes')
+      .select('id, status, created_at, user_id, liga_id, profiles:user_id(username, full_name, email), ligas:liga_id(nombre)')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setSolicitudes(data || []); setLoading(false) })
+  }, [])
+
+  async function handleApprove(sol) {
+    setActing(sol.id)
+    await supabase.from('liga_miembros').insert({ liga_id: sol.liga_id, usuario_id: sol.user_id })
+    await supabase.from('liga_solicitudes').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', sol.id)
+    setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, status: 'approved' } : s))
+    setActing(null)
+  }
+
+  async function handleReject(sol) {
+    setActing(sol.id)
+    await supabase.from('liga_solicitudes').update({ status: 'rejected', reviewed_at: new Date().toISOString() }).eq('id', sol.id)
+    setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, status: 'rejected' } : s))
+    setActing(null)
+  }
+
+  const pending  = solicitudes.filter(s => s.status === 'pending')
+  const resolved = solicitudes.filter(s => s.status !== 'pending')
+
+  if (loading) return <div className="text-center py-20 text-gray-500">Cargando...</div>
+
+  return (
+    <div className="space-y-6">
+      {/* Pending */}
+      <div className="card overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/5 flex items-center gap-2">
+          <h3 className="text-white font-bold">Pendientes</h3>
+          {pending.length > 0 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-500/30">
+              {pending.length}
+            </span>
+          )}
+        </div>
+        {pending.length === 0 ? (
+          <p className="text-center py-12 text-gray-500 text-sm">No hay solicitudes pendientes</p>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {pending.map(sol => (
+              <div key={sol.id} className="flex items-center gap-4 px-5 py-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-sm">@{sol.profiles?.username}</p>
+                  <p className="text-gray-500 text-xs">{sol.profiles?.email}</p>
+                  <p className="text-gray-600 text-xs mt-0.5">
+                    {sol.ligas?.nombre} · {new Date(sol.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => handleApprove(sol)} disabled={acting === sol.id}
+                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+                    style={{ backgroundColor: 'rgba(0,165,80,0.15)', color: '#00A550', border: '1px solid rgba(0,165,80,0.3)' }}>
+                    {acting === sol.id ? '...' : '✓ Aprobar'}
+                  </button>
+                  <button onClick={() => handleReject(sol)} disabled={acting === sol.id}
+                    className="text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+                    style={{ backgroundColor: 'rgba(220,38,38,0.12)', color: '#F87171', border: '1px solid rgba(220,38,38,0.3)' }}>
+                    {acting === sol.id ? '...' : '✕ Rechazar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Resolved */}
+      {resolved.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="px-5 py-4 border-b border-white/5">
+            <h3 className="text-white font-bold">Historial</h3>
+          </div>
+          <div className="divide-y divide-white/5">
+            {resolved.map(sol => (
+              <div key={sol.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-300 text-sm font-semibold">@{sol.profiles?.username}</p>
+                  <p className="text-gray-600 text-xs">{sol.ligas?.nombre}</p>
+                </div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                  sol.status === 'approved'
+                    ? 'text-green-400 bg-green-900/20 border-green-500/30'
+                    : 'text-red-400 bg-red-900/20 border-red-500/30'
+                }`}>
+                  {sol.status === 'approved' ? '✓ Aprobado' : '✕ Rechazado'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Admin page ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const [tab, setTab] = useState('partidos')
+  const [tab, setTab]           = useState('partidos')
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    supabase.from('liga_solicitudes').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      .then(({ count }) => setPendingCount(count || 0))
+  }, [])
 
   const tabs = [
-    { key: 'partidos', label: 'Partidos' },
-    { key: 'usuarios', label: 'Usuarios' },
-    { key: 'ligas',    label: 'Ligas'    },
+    { key: 'partidos',    label: 'Partidos' },
+    { key: 'usuarios',    label: 'Usuarios' },
+    { key: 'ligas',       label: 'Ligas'    },
+    { key: 'solicitudes', label: 'Solicitudes', badge: pendingCount },
   ]
 
   return (
@@ -436,18 +549,25 @@ export default function Admin() {
       <div className="flex gap-1.5 mb-8 p-1 rounded-2xl w-fit" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-6 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
+            className={`relative px-6 py-2.5 rounded-xl font-display text-xs tracking-wider transition-all ${
               tab === t.key ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
             }`}
             style={tab === t.key ? { backgroundColor: '#0A1628', color: '#FFD700' } : {}}>
             {t.label.toUpperCase()}
+            {t.badge > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center text-white"
+                    style={{ backgroundColor: '#E8122D' }}>
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {tab === 'partidos' && <PartidosTab />}
-      {tab === 'usuarios' && <UsuariosTab />}
-      {tab === 'ligas'    && <LigasTab />}
+      {tab === 'partidos'    && <PartidosTab />}
+      {tab === 'usuarios'    && <UsuariosTab />}
+      {tab === 'ligas'       && <LigasTab />}
+      {tab === 'solicitudes' && <SolicitudesTab />}
     </div>
   )
 }
