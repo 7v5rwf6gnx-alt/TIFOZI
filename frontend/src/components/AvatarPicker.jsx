@@ -93,9 +93,7 @@ export default function AvatarPicker({ selected, onSelect, onClose }) {
                 selected === emoji ? 'ring-2 ring-[#1B4FD8] ring-offset-1 ring-offset-[#1A1A1A]' : ''
               }`}
               style={{
-                background: selected === emoji
-                  ? 'linear-gradient(135deg, #1e3a8a, #1B4FD8)'
-                  : 'rgba(255,255,255,0.06)',
+                background: selected === emoji ? '#1B4FD8' : 'rgba(255,255,255,0.06)',
               }}
             >
               {emoji}

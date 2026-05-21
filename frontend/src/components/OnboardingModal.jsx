@@ -136,7 +136,7 @@ export default function OnboardingModal({ onComplete }) {
                     className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95 ${
                       avatar === emoji ? 'ring-2 ring-[#1B4FD8] ring-offset-1 ring-offset-[#1A1A1A]' : ''
                     }`}
-                    style={{ background: avatar === emoji ? 'linear-gradient(135deg, #1e3a8a, #1B4FD8)' : 'rgba(255,255,255,0.06)' }}>
+                    style={{ background: avatar === emoji ? '#1B4FD8' : 'rgba(255,255,255,0.06)' }}>
                     {emoji}
                   </button>
                 ))}

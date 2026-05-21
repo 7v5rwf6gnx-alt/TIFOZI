@@ -20,9 +20,7 @@ export function AvatarDisplay({ avatarUrl, username, size = 36, rank = null, sty
   return (
     <div style={{
       width: size, height: size,
-      background: emoji
-        ? 'linear-gradient(135deg, #1e3a8a, #1B4FD8)'
-        : 'linear-gradient(135deg, #1B4FD8, #E8122D)',
+      background: '#1B4FD8',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: 'white', fontWeight: 900,
       fontSize: emoji ? Math.round(size * 0.52) : Math.round(size * 0.4),
