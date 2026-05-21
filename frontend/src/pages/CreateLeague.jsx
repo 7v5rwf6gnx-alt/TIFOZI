@@ -17,8 +17,24 @@ const TORNEOS = [
 ]
 
 export default function CreateLeague() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
+
+  if (profile && !profile.can_create_liga) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-20 text-center">
+        <div className="text-5xl mb-5">🔒</div>
+        <h1 className="font-display text-4xl text-white tracking-wide mb-3">ACCESO RESTRINGIDO</h1>
+        <p className="text-gray-400 mb-2">Crear ligas requiere acceso especial.</p>
+        <p className="text-gray-500 text-sm mb-8">
+          Si querés armar tu liga, pedile acceso al administrador.
+        </p>
+        <button onClick={() => navigate('/dashboard')} className="btn-secondary">
+          ← Volver al dashboard
+        </button>
+      </div>
+    )
+  }
   const [torneo, setTorneo]         = useState(null)
   const [nombre, setNombre]         = useState('')
   const [descripcion, setDescripcion] = useState('')
