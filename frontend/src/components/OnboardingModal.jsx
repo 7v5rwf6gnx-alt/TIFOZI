@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -14,10 +14,35 @@ export default function OnboardingModal({ onComplete }) {
   const [avatar, setAvatar]     = useState(profile?.avatar_url ?? '')
   const [username, setUsername] = useState(profile?.username ?? '')
   const [saving, setSaving]     = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError]       = useState('')
+  const [customEmoji, setCustomEmoji] = useState('')
+  const fileRef = useRef()
 
   function handleUsernameChange(val) {
     setUsername(val.replace(/\s/g, '').toLowerCase())
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setError('La foto no puede superar 5MB'); return }
+    setUploading(true)
+    setError('')
+    const { error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(user.id, file, { upsert: true, contentType: file.type })
+    if (uploadErr) { setError(uploadErr.message); setUploading(false); return }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(user.id)
+    setAvatar(data.publicUrl + '?t=' + Date.now())
+    setUploading(false)
+  }
+
+  function handleCustomEmoji() {
+    const trimmed = customEmoji.trim()
+    if (!trimmed) return
+    setAvatar(trimmed)
+    setCustomEmoji('')
   }
 
   async function handleSave() {
@@ -58,25 +83,60 @@ export default function OnboardingModal({ onComplete }) {
           {/* Step 0: Avatar */}
           {step === 0 && (
             <>
-              <div className="text-center mb-6">
-                <div className="text-5xl mb-3">🏆</div>
+              <div className="text-center mb-5">
                 <h2 className="font-display text-3xl text-white tracking-wide mb-1">BIENVENIDO</h2>
-                <p className="text-gray-500 text-sm">Elegí un avatar para empezar</p>
+                <p className="text-gray-500 text-sm">Elegí tu avatar para empezar</p>
               </div>
 
+              {/* Preview */}
               {avatar && (
                 <div className="flex justify-center mb-4">
                   <AvatarDisplay avatarUrl={avatar} username={username} size={72} />
                 </div>
               )}
 
-              <div className="grid grid-cols-7 gap-2 mb-6">
+              {/* Photo upload */}
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="w-full mb-3 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all border border-white/15 hover:border-[#1B4FD8] text-gray-300 hover:text-white disabled:opacity-50"
+                style={{ background: 'rgba(27,79,216,0.1)' }}
+              >
+                {uploading ? '⏳ Subiendo...' : '📷  Subir foto de tu cámara o galería'}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+
+              {/* Custom emoji */}
+              <div className="flex gap-2 mb-4">
+                <input
+                  value={customEmoji}
+                  onChange={e => setCustomEmoji(e.target.value)}
+                  placeholder="Pegá cualquier emoji  🌮🦄🎸"
+                  className="input-dark flex-1 text-center text-lg"
+                  maxLength={8}
+                />
+                <button
+                  onClick={handleCustomEmoji}
+                  disabled={!customEmoji.trim()}
+                  className="px-4 rounded-xl font-bold text-sm text-white disabled:opacity-40"
+                  style={{ background: '#1B4FD8' }}
+                >
+                  OK
+                </button>
+              </div>
+
+              <p className="text-gray-600 text-xs text-center uppercase tracking-wide font-bold mb-2">
+                o elegí uno rápido
+              </p>
+
+              {/* Quick emoji grid */}
+              <div className="grid grid-cols-7 gap-2 mb-5">
                 {AVATAR_OPTIONS.map(emoji => (
                   <button key={emoji} onClick={() => setAvatar(emoji)}
                     className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95 ${
                       avatar === emoji ? 'ring-2 ring-[#1B4FD8] ring-offset-1 ring-offset-[#1A1A1A]' : ''
                     }`}
-                    style={{ background: avatar === emoji ? 'linear-gradient(135deg, #1e3a8a, #6B2FA0)' : 'rgba(255,255,255,0.06)' }}>
+                    style={{ background: avatar === emoji ? 'linear-gradient(135deg, #1e3a8a, #1B4FD8)' : 'rgba(255,255,255,0.06)' }}>
                     {emoji}
                   </button>
                 ))}

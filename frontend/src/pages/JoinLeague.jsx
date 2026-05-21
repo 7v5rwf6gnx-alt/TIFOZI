@@ -70,7 +70,7 @@ export default function JoinLeague() {
         ) : (
           <div className="card overflow-hidden">
             {/* Top gradient strip */}
-            <div className="h-2" style={{ background: 'linear-gradient(90deg, #1B4FD8, #6B2FA0, #E8122D)' }} />
+            <div className="h-2" style={{ background: 'linear-gradient(90deg, #1B4FD8, #E8122D)' }} />
 
             <div className="p-8 text-center">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6"

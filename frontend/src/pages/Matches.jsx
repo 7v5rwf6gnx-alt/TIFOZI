@@ -3,9 +3,9 @@ import { supabase } from '../lib/supabase'
 import { TeamBlock } from '../components/FlagPair'
 
 const GROUP_COLORS = {
-  A: '#1B4FD8', B: '#E8122D', C: '#00A550', D: '#6B2FA0',
+  A: '#1B4FD8', B: '#E8122D', C: '#00A550', D: '#1B4FD8',
   E: '#F97316', F: '#EC4899', G: '#0891B2', H: '#D97706',
-  I: '#7C3AED', J: '#059669', K: '#DC2626', L: '#0369A1',
+  I: '#2563EB', J: '#059669', K: '#DC2626', L: '#0369A1',
 }
 
 function fmtTime(t) {

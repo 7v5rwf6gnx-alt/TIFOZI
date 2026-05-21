@@ -9,7 +9,7 @@ const CONF_COLORS = {
   CONMEBOL: '#1B4FD8',
   UEFA:     '#E8122D',
   CONCACAF: '#00A550',
-  CAF:      '#6B2FA0',
+  CAF:      '#0EA5E9',
   AFC:      '#F97316',
   OFC:      '#0891B2',
 }

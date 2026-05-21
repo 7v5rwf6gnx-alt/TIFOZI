@@ -86,9 +86,9 @@ export default function Auth() {
             className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg border border-white/20"
             style={{ backgroundColor: '#0A1628' }}
           >
-            <span className="font-display text-white font-black text-2xl tracking-widest leading-none">TZ</span>
+            <span className="font-display text-white font-black text-2xl tracking-widest leading-none">PW</span>
           </div>
-          <h1 className="font-display text-5xl text-white tracking-widest">TIFOZI</h1>
+          <h1 className="font-display text-5xl text-white tracking-widest">POLLAWC26</h1>
           <p className="text-gray-500 text-sm mt-1">Mundial 2026 · USA · Canada · Mexico</p>
         </div>
 

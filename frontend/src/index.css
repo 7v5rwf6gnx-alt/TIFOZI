@@ -169,7 +169,7 @@
 /* ── Utility classes ─────────────────────────────────────────────────────── */
 
 .aurora-bg {
-  background: linear-gradient(135deg, #0f1e5c, #1B4FD8, #6B2FA0, #E8122D, #1B4FD8, #0f1e5c);
+  background: linear-gradient(135deg, #0f1e5c, #1B4FD8, #2563EB, #E8122D, #1B4FD8, #0f1e5c);
   background-size: 400% 400%;
   animation: aurora 12s ease infinite;
 }

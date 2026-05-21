@@ -21,7 +21,7 @@ export function AvatarDisplay({ avatarUrl, username, size = 36, rank = null, sty
     <div style={{
       width: size, height: size,
       background: emoji
-        ? 'linear-gradient(135deg, #1e3a8a, #6B2FA0)'
+        ? 'linear-gradient(135deg, #1e3a8a, #1B4FD8)'
         : 'linear-gradient(135deg, #1B4FD8, #E8122D)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: 'white', fontWeight: 900,

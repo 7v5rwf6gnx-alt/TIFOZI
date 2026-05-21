@@ -14,9 +14,9 @@ const WC_LOGO    = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/20
 const NEWS_URL   = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.espn.com%2Fespn%2Frss%2Fsoccer%2Fnews&count=8'
 
 const GROUP_COLORS = {
-  A:'#1B4FD8',B:'#E8122D',C:'#00A550',D:'#6B2FA0',
+  A:'#1B4FD8',B:'#E8122D',C:'#00A550',D:'#1B4FD8',
   E:'#F97316',F:'#EC4899',G:'#0891B2',H:'#D97706',
-  I:'#7C3AED',J:'#059669',K:'#DC2626',L:'#0369A1',
+  I:'#2563EB',J:'#059669',K:'#DC2626',L:'#0369A1',
 }
 const MEDALS = ['👑','🥈','🥉']
 
@@ -210,7 +210,7 @@ function HeroGuest() {
         <motion.div initial={{ opacity:0, y:30 }} animate={{ opacity:1, y:0 }}
           transition={{ delay:0.35, duration:0.7 }}>
           <h1 className="font-display font-black text-7xl sm:text-[10rem] leading-none tracking-widest mb-10"
-              style={{ color:'#FFD700', textShadow:'0 2px 32px rgba(0,0,0,0.8)' }}>TIFOZI</h1>
+              style={{ color:'#FFD700', textShadow:'0 2px 32px rgba(0,0,0,0.8)' }}>POLLAWC26</h1>
         </motion.div>
 
         <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }}

@@ -42,10 +42,10 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border border-white/20"
                  style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
-              <span className="text-white font-black text-xs leading-none tracking-wider">TZ</span>
+              <span className="text-white font-black text-xs leading-none tracking-wider">PW</span>
             </div>
             <span className="font-display text-2xl text-white leading-none tracking-widest drop-shadow hidden sm:block">
-              TIFOZI
+              POLLAWC26
             </span>
           </Link>
 
