@@ -238,12 +238,13 @@ function UsuariosTab() {
   const [users, setUsers]       = useState([])
   const [loading, setLoading]   = useState(true)
   const [predCounts, setPredCounts] = useState({})
+  const [toggling, setToggling] = useState(null)
 
   useEffect(() => {
     async function load() {
       const [{ data: profiles }, { data: preds }] = await Promise.all([
         supabase.from('profiles')
-          .select('id, username, full_name, email, is_admin, created_at')
+          .select('id, username, full_name, email, is_admin, can_create_liga, created_at')
           .order('created_at'),
         supabase.from('predictions').select('user_id'),
       ])
@@ -255,6 +256,13 @@ function UsuariosTab() {
     }
     load()
   }, [])
+
+  async function handleToggleCreateLiga(userId, current) {
+    setToggling(userId)
+    await supabase.from('profiles').update({ can_create_liga: !current }).eq('id', userId)
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, can_create_liga: !current } : u))
+    setToggling(null)
+  }
 
   if (loading) return <div className="text-center py-20 text-gray-500">Cargando...</div>
 
@@ -268,6 +276,7 @@ function UsuariosTab() {
               <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">Email</th>
               <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider text-center">Pronósticos</th>
               <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider text-center">Admin</th>
+              <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider text-center">Crear liga</th>
               <th className="py-3 px-4 text-xs text-gray-500 font-bold uppercase tracking-wider">Registro</th>
             </tr>
           </thead>
@@ -290,6 +299,20 @@ function UsuariosTab() {
                       Admin
                     </span>
                   )}
+                </td>
+                <td className="py-3 px-4 text-center">
+                  <button
+                    onClick={() => handleToggleCreateLiga(u.id, u.can_create_liga)}
+                    disabled={toggling === u.id}
+                    className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 disabled:opacity-50 focus:outline-none"
+                    style={{ backgroundColor: u.can_create_liga ? '#1B4FD8' : 'rgba(255,255,255,0.1)' }}
+                    title={u.can_create_liga ? 'Quitar acceso' : 'Dar acceso'}
+                  >
+                    <span
+                      className="inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200"
+                      style={{ transform: u.can_create_liga ? 'translateX(24px)' : 'translateX(4px)' }}
+                    />
+                  </button>
                 </td>
                 <td className="py-3 px-4 text-gray-500 text-xs">
                   {new Date(u.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
