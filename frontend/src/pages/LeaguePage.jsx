@@ -821,8 +821,8 @@ export default function LeaguePage() {
                   </span>
                 ))}
                 <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={{ background: `${accentColor}18`, border: `1px solid ${accentColor}40`, color: accentColor }}>
-                  {isPL ? 'Premier League' : 'Mundial 2026'}
+                      style={{ background: '#1B4FD818', border: '1px solid #1B4FD840', color: '#1B4FD8' }}>
+                  Mundial 2026
                 </span>
               </div>
             </div>
@@ -920,7 +920,7 @@ export default function LeaguePage() {
               <motion.div
                 layoutId="tab-indicator"
                 className="absolute inset-0 rounded-xl"
-                style={{ backgroundColor: accentColor }}
+                style={{ backgroundColor: '#1B4FD8' }}
                 transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
               />
             )}

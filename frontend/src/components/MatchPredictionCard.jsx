@@ -534,17 +534,13 @@ export function MatchPredictionCard({ match, prediction, onSave }) {
       {/* Meta row */}
       <div className="px-5 pt-3.5 pb-0 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
-          {isPL ? (
-            <span className="font-display text-sm tracking-wider" style={{ color: groupColor }}>PREMIER LEAGUE</span>
-          ) : (
-            <>
-              <span className="text-gray-600 text-xs font-mono">#{match.match_number}</span>
-              <span className="text-gray-700">·</span>
-              <span className="font-display text-sm tracking-wider" style={{ color: groupColor }}>
-                GRUPO {match.group?.name}
-              </span>
-            </>
-          )}
+          <>
+            <span className="text-gray-600 text-xs font-mono">#{match.match_number}</span>
+            <span className="text-gray-700">·</span>
+            <span className="font-display text-sm tracking-wider" style={{ color: groupColor }}>
+              GRUPO {match.group?.name}
+            </span>
+          </>
           <span className="text-gray-700">·</span>
           <span className="text-gray-500 text-xs">{dateStr}</span>
           {locked && <span className="text-gray-600 text-xs">· 🔒</span>}
