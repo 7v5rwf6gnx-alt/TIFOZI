@@ -759,6 +759,7 @@ function PlayerFace({ player, size = 42 }) {
       src={src}
       alt={player?.nombre}
       onError={() => setErr(true)}
+      referrerPolicy="no-referrer"
       style={{ width: size, height: size, borderRadius: size / 2, objectFit: 'cover', objectPosition: 'top' }}
     />
   )
