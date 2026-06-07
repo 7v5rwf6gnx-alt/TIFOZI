@@ -8,7 +8,7 @@ import { Flag } from '../components/FlagPair'
 import { AvatarDisplay } from '../components/AvatarDisplay'
 import LeagueChat from '../components/LeagueChat'
 
-const TABS = ['Ranking', 'Partidos', 'Chat', 'Miembros']
+const TABS = ['Ranking', 'Goleadores', 'Partidos', 'Chat', 'Miembros']
 
 const WC_MATCH_SELECT = `
   id, match_number, stage, match_date, match_time, home_score, away_score, status, competition,
@@ -55,22 +55,31 @@ function SkeletonRanking() {
 }
 
 // ── Picks Grid ────────────────────────────────────────────────────────────────
-function PicksGrid({ rankingRows, matches, predMap }) {
+function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserId }) {
 
-  function cellInfo(userId, match) {
-    if (!isLocked(match)) {
-      return { bg: 'transparent', border: '1px dashed rgba(255,255,255,0.07)', flagUrl: null, isDraw: false }
+  // Current user always first
+  const orderedRows = useMemo(() => {
+    const me = rankingRows.find(r => r.user_id === currentUserId)
+    const rest = rankingRows.filter(r => r.user_id !== currentUserId)
+    return me ? [me, ...rest] : rankingRows
+  }, [rankingRows, currentUserId])
+
+  function cellInfo(rowUserId, match) {
+    const isMe = rowUserId === currentUserId
+    const locked = isLocked(match)
+    // Hide other users' picks until match locks
+    if (!locked && !isMe) {
+      return { type: 'hidden' }
     }
-    const pred = predMap[userId]?.[match.id]
+    const pred = predMap[rowUserId]?.[match.id]
     if (!pred || pred.home_score == null) {
-      return { bg: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.12)', flagUrl: null, isDraw: false }
+      return { type: 'no-pick' }
     }
-    const outcome = pred.home_score > pred.away_score ? 'home'
-                  : pred.home_score < pred.away_score ? 'away' : 'draw'
+    const hs = pred.home_score, as = pred.away_score
+    const outcome = hs > as ? 'home' : hs < as ? 'away' : 'draw'
     const flagUrl = outcome === 'home' ? match.home_team?.flag_url
                   : outcome === 'away' ? match.away_team?.flag_url : null
-    const isDraw  = outcome === 'draw'
-    const pts     = pred.points_earned
+    const pts = pred.points_earned
     let bg, border
     if (match.status !== 'finished' || pts == null) {
       bg = '#2a2a2a'; border = '1.5px solid rgba(255,255,255,0.14)'
@@ -81,16 +90,18 @@ function PicksGrid({ rankingRows, matches, predMap }) {
     } else {
       bg = '#7f1d1d'; border = '2px solid #f87171'
     }
-    return { bg, border, flagUrl, isDraw }
+    const player = pred.primer_goleador_prediccion_id ? playerMap[pred.primer_goleador_prediccion_id] : null
+    return { type: 'pick', score: `${hs}-${as}`, flagUrl, isDraw: outcome === 'draw', bg, border, player }
   }
 
   const hi = url => url?.replace(/\/w\d+\//, '/w80/') ?? ''
 
-  if (rankingRows.length === 0) return null
+  if (orderedRows.length === 0) return null
 
   return (
     <div className="overflow-x-auto -mx-4">
       <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
+        {/* Match header */}
         <div className="flex items-end mb-2">
           <div style={{ minWidth: 172, flexShrink: 0 }} />
           {matches.map(m => (
@@ -104,38 +115,71 @@ function PicksGrid({ rankingRows, matches, predMap }) {
           ))}
         </div>
 
-        {rankingRows.map((row, idx) => (
-          <motion.div
-            key={row.user_id}
-            initial={{ opacity: 0, x: -16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: idx * 0.04, duration: 0.3 }}
-            className="flex items-center mb-2.5"
-          >
-            <div style={{ minWidth: 172, flexShrink: 0 }} className="flex items-center gap-2 pr-3">
-              <span className="font-display text-base text-gray-600 w-5 text-center shrink-0">{idx + 1}</span>
-              <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} rank={idx + 1 <= 3 ? idx + 1 : null} />
-              <span className="text-white text-xs font-semibold truncate flex-1">{row.username}</span>
-              <span className="font-display text-lg text-[#1B4FD8] shrink-0">{row.total_points}</span>
-            </div>
-            {matches.map(match => {
-              const { bg, border, flagUrl, isDraw } = cellInfo(row.user_id, match)
-              return (
-                <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
-                  <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: bg, border, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isDraw ? (
-                      <span style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.5)' }}>=</span>
-                    ) : flagUrl ? (
-                      <img src={hi(flagUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
-          </motion.div>
-        ))}
+        {orderedRows.map((row, idx) => {
+          const isMe = row.user_id === currentUserId
+          const originalRank = rankingRows.findIndex(r => r.user_id === row.user_id) + 1
+          return (
+            <motion.div
+              key={row.user_id}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.04, duration: 0.3 }}
+              className="flex items-center mb-2.5"
+            >
+              {/* Name column */}
+              <div style={{ minWidth: 172, flexShrink: 0, ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
+                   className="flex items-center gap-2 pr-3">
+                <span className="font-display text-base w-5 text-center shrink-0"
+                      style={{ color: isMe ? '#1B4FD8' : '#4B5563' }}>
+                  {originalRank}
+                </span>
+                <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} rank={originalRank <= 3 ? originalRank : null} />
+                <span className={`text-xs font-semibold truncate flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
+                  {row.username}
+                </span>
+                <span className="font-display text-lg shrink-0" style={{ color: isMe ? '#1B4FD8' : '#6B7280' }}>
+                  {row.total_points}
+                </span>
+              </div>
 
-        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5">
+              {/* Cells */}
+              {matches.map(match => {
+                const info = cellInfo(row.user_id, match)
+                if (info.type === 'hidden') {
+                  return (
+                    <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
+                      <div style={{ width: 42, height: 42, borderRadius: 10, border: '1px dashed rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+                    </div>
+                  )
+                }
+                if (info.type === 'no-pick') {
+                  return (
+                    <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
+                      <div style={{ width: 42, height: 42, borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>–</span>
+                      </div>
+                    </div>
+                  )
+                }
+                // type === 'pick'
+                return (
+                  <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
+                    <div style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: info.bg, border: info.border, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {info.isDraw ? (
+                        <span style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.5)' }}>=</span>
+                      ) : info.flagUrl ? (
+                        <img src={hi(info.flagUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : null}
+                    </div>
+                  </div>
+                )
+              })}
+            </motion.div>
+          )
+        })}
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-white/5">
           {[
             { bg: '#14532d', border: '#4ade80', label: 'Marcador exacto' },
             { bg: '#78350f', border: '#fbbf24', label: 'Ganador correcto' },
@@ -155,11 +199,12 @@ function PicksGrid({ rankingRows, matches, predMap }) {
 
 // ── Ranking Tab ───────────────────────────────────────────────────────────────
 function RankingTab({ ligaId, userId, torneo }) {
-  const [rows, setRows]         = useState([])
-  const [matches, setMatches]   = useState([])
-  const [predMap, setPredMap]   = useState({})
-  const [loading, setLoading]   = useState(true)
-  const [view, setView]         = useState('tabla')
+  const [rows, setRows]           = useState([])
+  const [matches, setMatches]     = useState([])
+  const [predMap, setPredMap]     = useState({})
+  const [playerMap, setPlayerMap] = useState({})
+  const [loading, setLoading]     = useState(true)
+  const [view, setView]           = useState('tabla')
   const [expandedRow, setExpandedRow] = useState(null)
   useEffect(() => {
     async function load() {
@@ -180,16 +225,27 @@ function RankingTab({ ligaId, userId, torneo }) {
             .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
             .eq('stage', 'group').order('match_number'),
           supabase.from('predictions')
-            .select('user_id, match_id, home_score, away_score, points_earned, bonus_goleador')
+            .select('user_id, match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
             .in('user_id', memberIds),
         ])
         setMatches(mData || [])
         const map = {}
+        const playerIds = new Set()
         for (const p of pData || []) {
           if (!map[p.user_id]) map[p.user_id] = {}
           map[p.user_id][p.match_id] = p
+          if (p.primer_goleador_prediccion_id) playerIds.add(p.primer_goleador_prediccion_id)
         }
         setPredMap(map)
+
+        if (playerIds.size > 0) {
+          const { data: playersData } = await supabase
+            .from('jugadores').select('id, nombre, sofascore_id')
+            .in('id', [...playerIds])
+          const pMap = {}
+          for (const pl of playersData || []) pMap[pl.id] = pl
+          setPlayerMap(pMap)
+        }
       }
       setLoading(false)
     }
@@ -277,7 +333,7 @@ function RankingTab({ ligaId, userId, torneo }) {
       </div>
 
       {view === 'picks' ? (
-        <PicksGrid rankingRows={rows} matches={matches} predMap={predMap} />
+        <PicksGrid rankingRows={rows} matches={matches} predMap={predMap} playerMap={playerMap} currentUserId={userId} />
       ) : (
         <>
           {/* Podium top 3 */}
@@ -570,37 +626,27 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const [myPredictions, setMyPredictions] = useState({})
   const [loading, setLoading]             = useState(true)
   const [filter, setFilter]               = useState('all')
-  const [selectedDay, setSelectedDay]     = useState(null)
   useEffect(() => {
     if (!userId) return
     async function load() {
-      const matchQuery = supabase.from('matches').select(WC_MATCH_SELECT).eq('stage', 'group').order('match_number')
-
       const [{ data: matchData }, { data: predData }] = await Promise.all([
-        matchQuery,
+        supabase.from('matches').select(WC_MATCH_SELECT).eq('stage', 'group').order('match_number'),
         supabase.from('predictions')
           .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
           .eq('user_id', userId),
       ])
-
       const mData = matchData || []
       setMatches(mData)
       const myMap = {}
       for (const p of predData || []) myMap[p.match_id] = p
       setMyPredictions(myMap)
-
-      // Default: first day with non-finished match, else last day
-      const days = [...new Set(mData.map(m => (m.match_date ?? '').slice(0, 10)).filter(Boolean))].sort()
-      const firstUpcoming = days.find(d => mData.some(m => (m.match_date ?? '').slice(0, 10) === d && m.status !== 'finished'))
-      setSelectedDay(firstUpcoming ?? days[days.length - 1] ?? null)
-
       setLoading(false)
     }
     load()
   }, [ligaId, userId])
 
   const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
-    const { data } = await supabase.from('predictions')
+    const { data, error } = await supabase.from('predictions')
       .upsert({
         user_id: userId, match_id: matchId,
         home_score: homeScore, away_score: awayScore,
@@ -608,17 +654,13 @@ function MatchesTab({ ligaId, userId, torneo }) {
       }, { onConflict: 'user_id,match_id' })
       .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
       .single()
+    if (error) return error.message
     if (data) setMyPredictions(prev => ({ ...prev, [matchId]: data }))
+    return null
   }, [userId])
 
   const groups = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
-
-  const days = useMemo(() =>
-    [...new Set(matches.map(m => (m.match_date ?? '').slice(0, 10)).filter(Boolean))].sort()
-  , [matches])
-
-  const groupFiltered = filter !== 'all' ? matches.filter(m => m.group?.name === filter) : matches
-  const dayMatches    = selectedDay ? groupFiltered.filter(m => (m.match_date ?? '').slice(0, 10) === selectedDay) : groupFiltered
+  const filtered = filter !== 'all' ? matches.filter(m => m.group?.name === filter) : matches
 
   if (loading) return <SkeletonRanking />
 
@@ -627,7 +669,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
 
       {/* Group filter */}
       {groups.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-5">
           {['all', ...groups].map(g => (
             <button key={g} onClick={() => setFilter(g)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
@@ -640,31 +682,9 @@ function MatchesTab({ ligaId, userId, torneo }) {
         </div>
       )}
 
-      {/* Day tabs */}
-      {days.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-5" style={{ scrollbarWidth: 'none' }}>
-          {days.map(day => {
-            const date    = new Date(day + 'T12:00:00')
-            const label   = date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
-            const hasLive = matches.some(m => (m.match_date ?? '').slice(0, 10) === day && m.status === 'live')
-            const isActive = selectedDay === day
-            return (
-              <button key={day} onClick={() => setSelectedDay(day)}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${
-                  isActive ? 'text-white border-transparent' : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/25'
-                }`}
-                style={isActive ? { backgroundColor: '#1B4FD8' } : {}}>
-                {hasLive && <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />}
-                {label.toUpperCase()}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
       {/* Match cards */}
       <div className="space-y-4">
-        {dayMatches.map(match => (
+        {filtered.map(match => (
           <MatchPredictionCard
             key={match.id}
             match={match}
@@ -672,8 +692,8 @@ function MatchesTab({ ligaId, userId, torneo }) {
             onSave={handleSave}
           />
         ))}
-        {dayMatches.length === 0 && (
-          <p className="text-center text-gray-600 py-10 text-sm">Sin partidos para este día.</p>
+        {filtered.length === 0 && (
+          <p className="text-center text-gray-600 py-10 text-sm">Sin partidos.</p>
         )}
       </div>
     </motion.div>
@@ -712,6 +732,350 @@ function MembersTab({ ligaId, adminId }) {
           </span>
         </motion.div>
       ))}
+    </motion.div>
+  )
+}
+
+// ── Goleadores Picks Grid ─────────────────────────────────────────────────────
+function PlayerFace({ player, size = 42 }) {
+  const [err, setErr] = useState(false)
+  const src = player?.sofascore_id
+    ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
+    : null
+
+  const initials = player?.nombre
+    ? player.nombre.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : '?'
+
+  if (!src || err) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: size / 2, background: '#1B4FD830', border: '1.5px solid #1B4FD860', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: size * 0.32, fontWeight: 900, color: '#1B4FD8' }}>{initials}</span>
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt={player?.nombre}
+      onError={() => setErr(true)}
+      style={{ width: size, height: size, borderRadius: size / 2, objectFit: 'cover', objectPosition: 'top' }}
+    />
+  )
+}
+
+function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, currentUserId }) {
+  const orderedRows = useMemo(() => {
+    const me = rankingRows.find(r => r.user_id === currentUserId)
+    const rest = rankingRows.filter(r => r.user_id !== currentUserId)
+    return me ? [me, ...rest] : rankingRows
+  }, [rankingRows, currentUserId])
+
+  function cellInfo(rowUserId, match) {
+    const isMe = rowUserId === currentUserId
+    if (!isLocked(match) && !isMe) return { type: 'hidden' }
+    const pred = predMap[rowUserId]?.[match.id]
+    if (!pred?.primer_goleador_prediccion_id) return { type: 'no-pick' }
+    const player = playerMap[pred.primer_goleador_prediccion_id]
+    let border = '1.5px solid rgba(255,255,255,0.22)'
+    let bg     = '#2a2a2a'
+    if (match.status === 'finished') {
+      if ((pred.bonus_goleador ?? 0) > 0) { bg = '#14532d'; border = '2px solid #4ade80' }
+      else                                 { bg = '#7f1d1d'; border = '2px solid #f87171' }
+    }
+    return { type: 'pick', player, bg, border }
+  }
+
+  const hi = url => url?.replace(/\/w\d+\//, '/w80/') ?? ''
+
+  if (orderedRows.length === 0) return null
+
+  return (
+    <div className="overflow-x-auto -mx-4">
+      <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
+        {/* Match header */}
+        <div className="flex items-end mb-2">
+          <div style={{ minWidth: 172, flexShrink: 0 }} />
+          {matches.map(m => (
+            <div key={m.id} style={{ width: 50, flexShrink: 0 }}
+                 className="flex flex-col items-center gap-0.5 px-1">
+              <img src={hi(m.home_team?.flag_url)} alt=""
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+              <img src={hi(m.away_team?.flag_url)} alt=""
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+            </div>
+          ))}
+        </div>
+
+        {/* User rows */}
+        {orderedRows.map((row, idx) => {
+          const isMe = row.user_id === currentUserId
+          const originalRank = rankingRows.findIndex(r => r.user_id === row.user_id) + 1
+          return (
+            <motion.div
+              key={row.user_id}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.04, duration: 0.3 }}
+              className="flex items-center mb-2.5"
+            >
+              <div style={{ minWidth: 172, flexShrink: 0, ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
+                   className="flex items-center gap-2 pr-3">
+                <span className="font-display text-base w-5 text-center shrink-0"
+                      style={{ color: isMe ? '#1B4FD8' : '#4B5563' }}>{originalRank}</span>
+                <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} rank={originalRank <= 3 ? originalRank : null} />
+                <span className={`text-xs font-semibold truncate flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>{row.username}</span>
+                <span className="font-display text-lg shrink-0" style={{ color: isMe ? '#1B4FD8' : '#6B7280' }}>{row.total_points}</span>
+              </div>
+              {matches.map(match => {
+                const info = cellInfo(row.user_id, match)
+                return (
+                  <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 10, overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: info.type === 'pick' ? info.bg : 'transparent',
+                      border: info.type === 'hidden'  ? '1px dashed rgba(255,255,255,0.07)'
+                            : info.type === 'no-pick' ? '1px dashed rgba(255,255,255,0.12)'
+                            : info.border,
+                    }}>
+                      {info.type === 'hidden'  && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)' }}>🔒</span>}
+                      {info.type === 'pick'    && <PlayerFace player={info.player} size={42} />}
+                    </div>
+                  </div>
+                )
+              })}
+            </motion.div>
+          )
+        })}
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5">
+          {[
+            { bg: '#14532d', border: '#4ade80', label: 'Goleador correcto' },
+            { bg: '#7f1d1d', border: '#f87171', label: 'Falló' },
+            { bg: '#2a2a2a', border: 'rgba(255,255,255,0.22)', label: 'Sin resultado aún' },
+          ].map(({ bg, border, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: bg, border: `1px solid ${border}`, flexShrink: 0 }} />
+              <span className="text-[10px] text-gray-600">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Goleadores Tab ────────────────────────────────────────────────────────────
+function GoleadoresTab({ ligaId, userId }) {
+  const [rows, setRows]         = useState([])
+  const [matches, setMatches]   = useState([])
+  const [predMap, setPredMap]   = useState({})
+  const [playerMap, setPlayerMap] = useState({})
+  const [loading, setLoading]   = useState(true)
+  const [view, setView]         = useState('tabla')
+  const [expandedRow, setExpandedRow] = useState(null)
+
+  useEffect(() => {
+    async function load() {
+      const { data: rankData } = await supabase
+        .from('liga_goleadores_leaderboard')
+        .select('*')
+        .eq('liga_id', ligaId)
+        .order('rank')
+
+      const rowsData = rankData || []
+      setRows(rowsData)
+
+      if (rowsData.length > 0) {
+        const memberIds = rowsData.map(r => r.user_id)
+
+        const [{ data: mData }, { data: pData }] = await Promise.all([
+          supabase.from('matches')
+            .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
+            .eq('stage', 'group').order('match_number'),
+          supabase.from('predictions')
+            .select('user_id, match_id, primer_goleador_prediccion_id, bonus_goleador')
+            .in('user_id', memberIds),
+        ])
+
+        setMatches(mData || [])
+
+        const map = {}
+        const playerIds = new Set()
+        for (const p of pData || []) {
+          if (!map[p.user_id]) map[p.user_id] = {}
+          map[p.user_id][p.match_id] = p
+          if (p.primer_goleador_prediccion_id) playerIds.add(p.primer_goleador_prediccion_id)
+        }
+        setPredMap(map)
+
+        if (playerIds.size > 0) {
+          const { data: playersData } = await supabase
+            .from('jugadores')
+            .select('id, nombre, sofascore_id')
+            .in('id', [...playerIds])
+          const pMap = {}
+          for (const pl of playersData || []) pMap[pl.id] = pl
+          setPlayerMap(pMap)
+        }
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [ligaId])
+
+  if (loading) return <SkeletonRanking />
+  if (rows.length === 0) return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="text-center py-16 text-gray-500">
+      Nadie ha hecho pronósticos todavía.
+    </motion.div>
+  )
+
+  const leaderPts = rows[0]?.total_points || 1
+  const podium    = rows.slice(0, 3)
+  const rest      = rows.slice(3)
+  const podiumCfg = [
+    { medal: '🥇', bg: 'bg-yellow-900/20', border: 'border-yellow-500/40', pts: 'text-panini-gold',  name: 'text-yellow-200' },
+    { medal: '🥈', bg: 'bg-white/5',       border: 'border-white/15',      pts: 'text-gray-300',    name: 'text-white'      },
+    { medal: '🥉', bg: 'bg-orange-900/20', border: 'border-orange-600/40', pts: 'text-orange-400',  name: 'text-orange-200' },
+  ]
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+
+      {/* View toggle */}
+      <div className="flex bg-[#1A1A1A] rounded-2xl p-1 border border-white/10 w-fit">
+        {[['tabla', 'Tabla'], ['picks', 'Picks']].map(([v, label]) => (
+          <button key={v} onClick={() => setView(v)}
+            className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-colors z-10 ${
+              view === v ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}>
+            {view === v && (
+              <motion.div layoutId="gol-view-bg"
+                className="absolute inset-0 rounded-xl"
+                style={{ backgroundColor: '#0A1628' }}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.35 }} />
+            )}
+            <span className="relative z-10">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {view === 'picks' ? (
+        <GoleadoresPicksGrid rankingRows={rows} matches={matches} predMap={predMap} playerMap={playerMap} currentUserId={userId} />
+      ) : (
+      <>
+
+      {/* Podium top 3 */}
+      <div className="space-y-2">
+        {podium.map((row, i) => {
+          const isMe  = row.user_id === userId
+          const cfg   = podiumCfg[i]
+          const pct   = leaderPts > 0 ? Math.round((row.total_points / leaderPts) * 100) : 0
+          const isExp = expandedRow === row.user_id
+
+          return (
+            <motion.div
+              key={row.user_id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07, duration: 0.35 }}
+              className="relative overflow-hidden rounded-2xl cursor-pointer"
+              onClick={() => setExpandedRow(isExp ? null : row.user_id)}
+            >
+              <motion.div
+                className="absolute inset-0"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: pct / 100 }}
+                transition={{ delay: i * 0.07 + 0.3, duration: 0.8, ease: 'easeOut' }}
+                style={{ transformOrigin: 'left', backgroundColor: 'rgba(27,79,216,0.10)', borderRadius: 'inherit' }}
+              />
+              <div className={`relative flex items-center gap-4 px-5 py-4 border-2 transition-all ${
+                isMe ? 'bg-blue-900/25 border-[#1B4FD8]' : `${cfg.bg} ${cfg.border}`
+              }`} style={{ borderRadius: 'inherit' }}>
+                <span className="text-2xl w-8 shrink-0 text-center">{cfg.medal}</span>
+                <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={40} rank={i + 1} />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-bold text-sm leading-tight truncate ${isMe ? 'text-[#1B4FD8]' : cfg.name}`}>
+                    {row.username}
+                    {isMe && <span className="ml-1 text-xs opacity-60 font-normal">(vos)</span>}
+                  </p>
+                  <p className="text-gray-600 text-[10px] mt-0.5">
+                    {row.goleadores_acertados} goleador{row.goleadores_acertados !== 1 ? 'es' : ''} acertado{row.goleadores_acertados !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={`font-display text-3xl leading-none ${isMe ? 'text-[#1B4FD8]' : cfg.pts}`}>
+                    <AnimatedNumber value={Number(row.total_points)} />
+                  </p>
+                  <p className="text-gray-500 text-xs mt-0.5">pts</p>
+                </div>
+              </div>
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {/* Tabla #4+ */}
+      {rest.length > 0 && (
+        <div className="rounded-2xl overflow-hidden border border-white/10"
+             style={{ background: 'linear-gradient(160deg, #1A1A1A 0%, #161616 100%)' }}>
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/10
+                          text-[11px] font-bold text-gray-600 uppercase tracking-widest select-none">
+            <span className="w-7 text-center shrink-0">#</span>
+            <span className="flex-1">Jugador</span>
+            <span className="w-16 text-center shrink-0">Acertados</span>
+            <span className="w-10 text-right shrink-0">Pts</span>
+          </div>
+          {rest.map((row, idx) => {
+            const isMe = row.user_id === userId
+            const pos  = idx + 4
+            const pct  = leaderPts > 0 ? Math.round((row.total_points / leaderPts) * 100) : 0
+
+            return (
+              <motion.div
+                key={row.user_id}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: (idx + 3) * 0.04, duration: 0.3 }}
+                className="relative overflow-hidden border-b border-white/5 last:border-0"
+              >
+                <motion.div
+                  className="absolute inset-0"
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: pct / 100 }}
+                  transition={{ delay: (idx + 3) * 0.04 + 0.3, duration: 0.8, ease: 'easeOut' }}
+                  style={{ transformOrigin: 'left', backgroundColor: isMe ? 'rgba(27,79,216,0.12)' : 'rgba(255,255,255,0.03)' }}
+                />
+                <div className={`relative flex items-center gap-3 px-4 py-3 transition-colors ${
+                  isMe ? 'bg-blue-900/5' : idx % 2 === 0 ? 'bg-white/[0.012]' : ''
+                }`}>
+                  <span className="font-display text-base text-gray-500 w-7 text-center shrink-0">{pos}</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={32} />
+                    <span className={`font-semibold text-sm truncate ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
+                      {row.username}
+                      {isMe && <span className="ml-1 text-xs text-[#1B4FD8]/60 font-normal">(vos)</span>}
+                    </span>
+                  </div>
+                  <span className="w-16 text-center text-sm shrink-0 font-mono text-gray-400">
+                    {row.goleadores_acertados}
+                  </span>
+                  <span className={`font-display text-2xl w-10 text-right shrink-0 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
+                    {row.total_points}
+                  </span>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+      </>
+      )}
     </motion.div>
   )
 }
@@ -947,10 +1311,11 @@ export default function LeaguePage() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'Ranking'  && <RankingTab  ligaId={id} userId={user?.id} torneo={liga.torneo} />}
-          {tab === 'Partidos' && <MatchesTab  ligaId={id} userId={user?.id} torneo={liga.torneo} />}
-          {tab === 'Chat'     && <LeagueChat  ligaId={id} />}
-          {tab === 'Miembros' && <MembersTab  ligaId={id} adminId={liga.admin_id} />}
+          {tab === 'Ranking'    && <RankingTab      ligaId={id} userId={user?.id} torneo={liga.torneo} />}
+          {tab === 'Goleadores' && <GoleadoresTab   ligaId={id} userId={user?.id} />}
+          {tab === 'Partidos'   && <MatchesTab       ligaId={id} userId={user?.id} torneo={liga.torneo} />}
+          {tab === 'Chat'       && <LeagueChat       ligaId={id} />}
+          {tab === 'Miembros'   && <MembersTab       ligaId={id} adminId={liga.admin_id} />}
         </motion.div>
       </AnimatePresence>
     </div>

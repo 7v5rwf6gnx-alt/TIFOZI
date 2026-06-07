@@ -150,7 +150,7 @@ export default function Predictions() {
   }, [user.id])
 
   const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('predictions')
       .upsert({
         user_id: user.id, match_id: matchId,
@@ -159,7 +159,9 @@ export default function Predictions() {
       }, { onConflict: 'user_id,match_id' })
       .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
       .single()
+    if (error) return error.message
     if (data) setPredictions(prev => ({ ...prev, [matchId]: data }))
+    return null
   }, [user.id])
 
   const handleDelete = useCallback(async (matchId) => {

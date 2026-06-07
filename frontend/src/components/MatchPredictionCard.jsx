@@ -292,16 +292,14 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const allPlayers = [...players.home, ...players.away]
 
   useEffect(() => {
-    if (!disabled || !selectedId) return
+    if (!selectedId) { setSelectedPlayer(null); return }
+    const all = [...players.home, ...players.away]
+    const found = all.find(p => p.id === selectedId)
+    if (found) { setSelectedPlayer(found); return }
     supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id')
       .eq('id', selectedId).single()
       .then(({ data }) => { if (data) setSelectedPlayer(data) })
-  }, [disabled, selectedId])
-
-  useEffect(() => {
-    if (disabled) return
-    setSelectedPlayer(selectedId ? allPlayers.find(p => p.id === selectedId) ?? null : null)
-  }, [selectedId, players, disabled])
+  }, [selectedId, players])
 
   useEffect(() => {
     if (!open) return
@@ -462,6 +460,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
   const [saved, setSaved]               = useState(false)
   const [shake, setShake]               = useState(false)
   const [showToast, setShowToast]       = useState(false)
+  const [saveError, setSaveError]       = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting]           = useState(false)
   const countdown = useLiveCountdown(match)
@@ -476,15 +475,34 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
 
   function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
 
+  async function handleGoalscorerSelect(id) {
+    setGoalscorerId(id)
+    setSaveError(null)
+    // Use typed scores if available, else fall back to already-saved scores
+    const hs = homeScore !== '' ? parseInt(homeScore) : prediction?.home_score
+    const as = awayScore !== '' ? parseInt(awayScore) : prediction?.away_score
+    if (hs != null && as != null) {
+      setSaving(true)
+      const err = await onSave(match.id, hs, as, id)
+      setSaving(false)
+      if (err) { setSaveError(err); return }
+      setSaved(true); setShowToast(true)
+      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => setShowToast(false), 2500)
+    }
+  }
+
   const pts        = prediction?.points_earned
   const bonus      = prediction?.bonus_goleador
   const groupColor = GROUP_COLORS[match.group?.name] ?? '#1B4FD8'
 
   async function handleSave() {
     if (homeScore === '' || awayScore === '') return
-    setSaving(true)
-    await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId)
-    setSaving(false); setSaved(true); setShowToast(true)
+    setSaving(true); setSaveError(null)
+    const err = await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId)
+    setSaving(false)
+    if (err) { setSaveError(err); return }
+    setSaved(true); setShowToast(true)
     setTimeout(() => setSaved(false), 2000)
     setTimeout(() => setShowToast(false), 2500)
   }
@@ -628,7 +646,11 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
 
       {/* Save button */}
       {!locked && (
-        <div className="px-5 pb-4 flex items-center justify-center gap-3 relative">
+        <div className="px-5 pb-4 flex flex-col items-center gap-2 relative">
+          {saveError && (
+            <p className="text-red-400 text-xs font-semibold text-center">{saveError}</p>
+          )}
+          <div className="flex items-center justify-center gap-3 w-full relative">
           <AnimatePresence>
             {showToast && (
               <motion.div
@@ -666,6 +688,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
               {deleting ? '...' : confirmDelete ? '¿Confirmar?' : '🗑'}
             </button>
           )}
+          </div>
         </div>
       )}
 
@@ -674,7 +697,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
         <GoalscorerSelector
           match={match}
           selectedId={goalscorerId}
-          onSelect={setGoalscorerId}
+          onSelect={handleGoalscorerSelect}
           disabled={locked}
         />
         {!locked && <H2HSection match={match} />}
