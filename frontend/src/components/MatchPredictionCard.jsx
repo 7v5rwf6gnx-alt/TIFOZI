@@ -152,6 +152,7 @@ function LineupSection({ match }) {
   const [open, setOpen] = useState(false)
   const home = match.lineup_home
   const away = match.lineup_away
+  const isPreMatch = match.status !== 'finished' && match.status !== 'live'
   const hasData = home?.length || away?.length
 
   const homeTeam = match.home_team
@@ -208,7 +209,7 @@ function LineupSection({ match }) {
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors">
-        <span className="font-bold uppercase tracking-wide">Alineaciones</span>
+        <span className="font-bold uppercase tracking-wide">{isPreMatch ? 'Posibles alineaciones' : 'Alineaciones'}</span>
         <span className="text-[10px] text-gray-600">{open ? '▲ Ocultar' : '▼ Ver'}</span>
       </button>
 
@@ -726,7 +727,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
           disabled={locked}
         />
         {!locked && <H2HSection match={match} />}
-        {locked && <LineupSection match={match} />}
+        <LineupSection match={match} />
       </div>
     </div>
   )
