@@ -328,11 +328,17 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     if (!homeId || !awayId) return
     setLoading(true); setFetchError(false)
     supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id')
-      .in('equipo_id', [homeId, awayId]).order('numero_camiseta')
+      .in('equipo_id', [homeId, awayId])
       .then(({ data, error }) => {
         if (error) { setFetchError(true); setLoading(false); return }
+        const POS_ORDER = { portero: 0, defensa: 1, mediocampista: 2, delantero: 3 }
+        const sort = list => list.slice().sort((a, b) => {
+          const pa = POS_ORDER[a.posicion?.toLowerCase()] ?? 4
+          const pb = POS_ORDER[b.posicion?.toLowerCase()] ?? 4
+          return pa !== pb ? pa - pb : (a.numero_camiseta ?? 99) - (b.numero_camiseta ?? 99)
+        })
         const all = data || []
-        setPlayers({ home: all.filter(p => p.equipo_id === homeId), away: all.filter(p => p.equipo_id === awayId) })
+        setPlayers({ home: sort(all.filter(p => p.equipo_id === homeId)), away: sort(all.filter(p => p.equipo_id === awayId)) })
         setLoading(false)
       })
   }, [open, match.home_team?.id, match.away_team?.id])
