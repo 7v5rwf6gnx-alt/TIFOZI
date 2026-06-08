@@ -154,6 +154,7 @@ function LineupSection({ match }) {
   const away = match.lineup_away
   const isPreMatch = match.status !== 'finished' && match.status !== 'live'
   const hasData = home?.length || away?.length
+  const confirmed = home?.[0]?.confirmed ?? false
 
   const homeTeam = match.home_team
   const awayTeam = match.away_team
@@ -177,13 +178,10 @@ function LineupSection({ match }) {
   ]
 
   const PlayerDot = ({ player }) => (
-    <div className="flex flex-col items-center gap-0.5" style={{ width: 32 }}>
-      <div className="w-6 h-6 rounded-full border border-white/40 flex items-center justify-center text-white font-bold"
-           style={{ fontSize: 8, backgroundColor: 'rgba(255,255,255,0.13)' }}>
-        {player.number ?? ''}
-      </div>
+    <div className="flex flex-col items-center gap-0.5" style={{ width: 34 }}>
+      <PlayerFace player={{ sofascore_id: player.sofascore_id, nombre: player.name, numero_camiseta: player.number }} size={28} />
       <span className="text-center text-white/70 leading-tight"
-            style={{ fontSize: 7, width: 32, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            style={{ fontSize: 7, width: 34, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {(player.name ?? '').split(' ').pop()}
       </span>
     </div>
@@ -209,7 +207,9 @@ function LineupSection({ match }) {
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors">
-        <span className="font-bold uppercase tracking-wide">{isPreMatch ? 'Posibles alineaciones' : 'Alineaciones'}</span>
+        <span className="font-bold uppercase tracking-wide">
+          {isPreMatch ? (confirmed ? 'Alineación confirmada' : 'Posibles alineaciones') : 'Alineaciones'}
+        </span>
         <span className="text-[10px] text-gray-600">{open ? '▲ Ocultar' : '▼ Ver'}</span>
       </button>
 
