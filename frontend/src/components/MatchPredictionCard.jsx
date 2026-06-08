@@ -726,7 +726,6 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
           onSelect={handleGoalscorerSelect}
           disabled={locked}
         />
-        {!locked && <H2HSection match={match} />}
         <LineupSection match={match} />
       </div>
     </div>
