@@ -94,21 +94,6 @@ function useMatchCd(match) {
   return label
 }
 
-function useCountUp(target, trigger) {
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    if (!trigger) return
-    if (target === 0) { setCount(0); return }
-    const steps = 50, inc = target / steps
-    let cur = 0
-    const id = setInterval(() => {
-      cur += inc
-      if (cur >= target) { setCount(target); clearInterval(id) } else setCount(Math.floor(cur))
-    }, 1200 / steps)
-    return () => clearInterval(id)
-  }, [target, trigger])
-  return count
-}
 
 function useScrollReveal(threshold = 0.15) {
   const ref    = useRef(null)
@@ -658,29 +643,21 @@ function NewsSection({ news, loading }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. STATS GLOBALES
+// 6. REGLAS
 // ─────────────────────────────────────────────────────────────────────────────
-function StatCounter({ value, suffix = '', label, color, trigger }) {
-  const count = useCountUp(value, trigger)
-  return (
-    <div className="text-center py-10 px-4">
-      <p className="font-display font-black text-5xl sm:text-6xl leading-none mb-2" style={{ color }}>
-        {count}{suffix}
-      </p>
-      <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">{label}</p>
-    </div>
-  )
-}
+const RULES = [
+  { icon:'⏰', value:'15 min', label:'Cierre antes del partido', color:'#9CA3AF',
+    desc:'Se cierran las predicciones 15 minutos antes de cada partido.' },
+  { icon:'🎯', value:'3 pts', label:'Marcador exacto', color:'#4ade80',
+    desc:'Acertás el marcador exacto de ambos equipos.' },
+  { icon:'✅', value:'1 pt',  label:'Ganador o empate', color:'#fbbf24',
+    desc:'Acertás quién gana (o que empata), aunque el score no coincida.' },
+  { icon:'⚽', value:'+1 pt', label:'Primer goleador', color:'#1B4FD8',
+    desc:'Elegís quién mete el primer gol. Si acertás, sumás 1 punto extra.' },
+]
 
-function StatsSection() {
-  const ref = useRef(null)
-  const [inView, setInView] = useState(false)
-  useEffect(() => {
-    const el = ref.current; if (!el) return
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setInView(true); obs.disconnect() } }, { threshold:0.3 })
-    obs.observe(el); return () => obs.disconnect()
-  }, [])
-
+function RulesSection() {
+  const [ref, inView] = useScrollReveal(0.15)
   return (
     <motion.section ref={ref}
       initial={{ opacity:0, y:30 }}
@@ -689,13 +666,16 @@ function StatsSection() {
       className="border-y border-white/5"
       style={{ backgroundColor:'#131313' }}>
       <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-white/5">
-        <StatCounter value={150} suffix="+" label="Jugadores"   color="#1B4FD8" trigger={inView} />
-        <StatCounter value={48}  suffix=""  label="Equipos"     color="#E8122D" trigger={inView} />
-        <StatCounter value={104} suffix=""  label="Partidos"    color="#00A550" trigger={inView} />
-        <div className="text-center py-10 px-4">
-          <p className="font-display font-black text-5xl sm:text-6xl leading-none mb-2" style={{ color:'#FFD700' }}>?</p>
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">Campeón</p>
-        </div>
+        {RULES.map(r => (
+          <div key={r.label} className="text-center py-8 px-4">
+            <p className="text-2xl mb-2">{r.icon}</p>
+            <p className="font-display font-black text-3xl sm:text-4xl leading-none mb-1" style={{ color:r.color }}>
+              {r.value}
+            </p>
+            <p className="text-white text-[11px] font-bold uppercase tracking-wide mb-1">{r.label}</p>
+            <p className="text-gray-600 text-[10px] leading-snug hidden sm:block">{r.desc}</p>
+          </div>
+        ))}
       </div>
     </motion.section>
   )
@@ -849,7 +829,7 @@ export default function Home() {
       {user && <LeaguesSection ligas={ligas} loading={dataLoading} />}
 
       {/* 3. Stats */}
-      <StatsSection />
+      <RulesSection />
 
       <Divider from="#131313" to="#111111" />
 
@@ -871,7 +851,7 @@ export default function Home() {
       </div>
 
       {/* 7. Stats globales */}
-      <StatsSection />
+      <RulesSection />
 
       <Divider from="#111111" to="#0D1B4B" />
 
