@@ -281,6 +281,28 @@ function H2HSection({ match }) {
   )
 }
 
+// ── Player face photo ─────────────────────────────────────────────────────────
+function PlayerFace({ player, size = 32 }) {
+  const [err, setErr] = useState(false)
+  const src = player?.sofascore_id
+    ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
+    : null
+  if (!src || err) {
+    return (
+      <span className="rounded-full flex items-center justify-center text-white font-black shrink-0"
+            style={{ width: size, height: size, fontSize: size * 0.38, backgroundColor: '#333' }}>
+        {player?.numero_camiseta ?? '?'}
+      </span>
+    )
+  }
+  return (
+    <img src={src} alt={player?.nombre} onError={() => setErr(true)}
+      referrerPolicy="no-referrer"
+      style={{ width: size, height: size, borderRadius: size / 2, objectFit: 'cover', objectPosition: 'top', flexShrink: 0 }}
+    />
+  )
+}
+
 // ── Goalscorer Selector ───────────────────────────────────────────────────────
 function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [open, setOpen]         = useState(false)
@@ -289,14 +311,12 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [fetchError, setFetchError] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
 
-  const allPlayers = [...players.home, ...players.away]
-
   useEffect(() => {
     if (!selectedId) { setSelectedPlayer(null); return }
     const all = [...players.home, ...players.away]
     const found = all.find(p => p.id === selectedId)
     if (found) { setSelectedPlayer(found); return }
-    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id')
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id')
       .eq('id', selectedId).single()
       .then(({ data }) => { if (data) setSelectedPlayer(data) })
   }, [selectedId, players])
@@ -307,7 +327,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     const awayId = match.away_team?.id
     if (!homeId || !awayId) return
     setLoading(true); setFetchError(false)
-    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id')
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id')
       .in('equipo_id', [homeId, awayId]).order('numero_camiseta')
       .then(({ data, error }) => {
         if (error) { setFetchError(true); setLoading(false); return }
@@ -324,7 +344,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     <div className="mt-3 pt-3 border-t border-white/10">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">
-          ⚡ Primer goleador <span className="text-gray-600 font-normal">(+2 pts)</span>
+          ⚡ Primer goleador <span className="text-gray-600 font-normal">(+1 pt)</span>
         </span>
         {selectedPlayer && !disabled && (
           <button onClick={e => { e.stopPropagation(); onSelect(null) }} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
@@ -335,11 +355,8 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
 
       {disabled ? (
         selectedPlayer ? (
-          <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-500/30 rounded-xl px-3 py-2">
-            <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0"
-                  style={{ backgroundColor: '#FFD700' }}>
-              {selectedPlayer.numero_camiseta}
-            </span>
+          <div className="flex items-center gap-2.5 bg-yellow-900/20 border border-yellow-500/30 rounded-xl px-3 py-2">
+            <PlayerFace player={selectedPlayer} size={32} />
             <span className="text-yellow-400 text-xs font-bold truncate">{selectedPlayer.nombre}</span>
           </div>
         ) : (
@@ -349,12 +366,17 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
         <>
           <button
             onClick={() => setOpen(v => !v)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-xs transition-all font-semibold ${
-              selectedPlayer ? 'bg-yellow-900/20 border-yellow-500/40 text-yellow-400' : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border-2 text-xs transition-all font-semibold ${
+              selectedPlayer ? 'bg-yellow-900/20 border-yellow-500/40' : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
             }`}>
-            <span className="truncate">
-              {selectedPlayer ? `#${selectedPlayer.numero_camiseta} ${selectedPlayer.nombre}` : 'Seleccionar goleador...'}
-            </span>
+            {selectedPlayer ? (
+              <span className="flex items-center gap-2 min-w-0">
+                <PlayerFace player={selectedPlayer} size={28} />
+                <span className="text-yellow-400 font-bold truncate">{selectedPlayer.nombre}</span>
+              </span>
+            ) : (
+              <span className="truncate">Seleccionar goleador...</span>
+            )}
             <span className="ml-2 shrink-0 text-[10px]">{open ? '▲' : '▼'}</span>
           </button>
 
@@ -367,7 +389,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
               ) : !hasPlayers ? (
                 <p className="text-center py-5 text-gray-500 text-xs">Plantel no disponible</p>
               ) : (
-                <div className="grid grid-cols-2 divide-x divide-white/5 max-h-64 overflow-y-auto">
+                <div className="grid grid-cols-2 divide-x divide-white/5 max-h-72 overflow-y-auto">
                   {teamsConfig.map(({ team, list }) => (
                     <div key={team.id}>
                       <div className="sticky top-0 bg-[#242424] px-3 py-2 border-b border-white/5 flex items-center gap-1.5">
@@ -379,11 +401,8 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
                       ) : (
                         list.map(p => (
                           <button key={p.id} onClick={() => { onSelect(p.id); setOpen(false) }}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-all hover:bg-[#1B4FD8]/10 ${selectedId === p.id ? 'bg-yellow-900/20' : ''}`}>
-                            <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 text-white"
-                                  style={{ backgroundColor: selectedId === p.id ? '#FFD700' : '#333' }}>
-                              {p.numero_camiseta}
-                            </span>
+                            className={`w-full flex items-center gap-2 px-2.5 py-2 text-left transition-all hover:bg-[#1B4FD8]/10 ${selectedId === p.id ? 'bg-yellow-900/20' : ''}`}>
+                            <PlayerFace player={p} size={34} />
                             <div className="min-w-0">
                               <p className={`text-xs font-semibold leading-tight truncate ${selectedId === p.id ? 'text-yellow-400' : 'text-gray-200'}`}>{p.nombre}</p>
                               <p className="text-gray-600 text-[10px] capitalize">{p.posicion}</p>
