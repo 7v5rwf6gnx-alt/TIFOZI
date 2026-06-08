@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { AVATAR_OPTIONS } from './AvatarPicker'
 import { AvatarDisplay } from './AvatarDisplay'
 
-const STEPS = ['Avatar', 'Usuario', 'Listo']
+const STEPS = ['Avatar', 'Usuario', 'Reglas', 'Listo']
 
 export default function OnboardingModal({ onComplete }) {
   const { user, profile, refreshProfile } = useAuth()
@@ -184,10 +184,63 @@ export default function OnboardingModal({ onComplete }) {
             </>
           )}
 
-          {/* Step 2: Done */}
+          {/* Step 2: Reglas */}
           {step === 2 && (
+            <div className="py-2">
+              <div className="text-center mb-5">
+                <h2 className="font-display text-3xl text-white tracking-wide mb-1">LAS REGLAS</h2>
+                <p className="text-gray-500 text-sm">Todo lo que necesitás saber para jugar</p>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                {/* Deadline */}
+                <div className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <span className="text-xl mt-0.5">⏰</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">Cierre de predicciones</p>
+                    <p className="text-gray-400 text-xs mt-0.5">Las predicciones se cierran <span className="text-white font-semibold">15 minutos antes</span> de cada partido. Pasado ese tiempo no podés modificar tu pronóstico.</p>
+                  </div>
+                </div>
+
+                {/* Exact score */}
+                <div className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)' }}>
+                  <span className="text-xl mt-0.5">🎯</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">Marcador exacto <span className="font-display text-lg text-[#4ade80] ml-1">3 pts</span></p>
+                    <p className="text-gray-400 text-xs mt-0.5">Acertás el resultado exacto de ambos equipos.</p>
+                  </div>
+                </div>
+
+                {/* Correct winner */}
+                <div className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                  <span className="text-xl mt-0.5">✅</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">Ganador o empate <span className="font-display text-lg text-[#fbbf24] ml-1">1 pt</span></p>
+                    <p className="text-gray-400 text-xs mt-0.5">Acertás quién gana el partido (o que empata), aunque el marcador exacto no coincida.</p>
+                  </div>
+                </div>
+
+                {/* Goalscorer */}
+                <div className="flex items-start gap-3 p-3 rounded-2xl" style={{ background: 'rgba(27,79,216,0.1)', border: '1px solid rgba(27,79,216,0.25)' }}>
+                  <span className="text-xl mt-0.5">⚽</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">Primer goleador <span className="font-display text-lg text-[#1B4FD8] ml-1">+1 pt</span></p>
+                    <p className="text-gray-400 text-xs mt-0.5">Elegís quién mete el primer gol del partido. Si acertás, sumás 1 punto extra encima de los puntos por resultado.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={() => setStep(3)}
+                className="btn-primary w-full text-base py-3" style={{ backgroundColor: '#0A1628', color: '#FFD700' }}>
+                Entendido →
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: Done */}
+          {step === 3 && (
             <div className="text-center py-4">
-              <AvatarDisplay avatarUrl={avatar} username={username} size={80} style={{ margin: '0 auto 16px' }} />
+              <div className="text-5xl mb-4">🏆</div>
               <h2 className="font-display text-3xl text-white tracking-wide mb-2">¡LISTO!</h2>
               <p className="text-gray-500 text-sm mb-2">Hola, <span className="text-white font-bold">@{username}</span></p>
               <p className="text-gray-600 text-sm mb-8">Ya podés crear o unirte a una liga y hacer tus pronósticos.</p>

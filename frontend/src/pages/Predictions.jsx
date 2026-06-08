@@ -198,7 +198,7 @@ export default function Predictions() {
               <p className="text-gray-500 text-xs">de 72</p>
             </div>
           </div>
-          <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +2 pts goleador</p>
+          <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
             {['all', ...groupNames].map(g => (
