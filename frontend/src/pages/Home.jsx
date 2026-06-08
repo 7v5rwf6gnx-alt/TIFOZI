@@ -649,7 +649,7 @@ const RULES = [
   { icon:'⏰', value:'15 min', label:'Cierre antes del partido', color:'#9CA3AF',
     desc:'Se cierran las predicciones 15 minutos antes de cada partido.' },
   { icon:'🎯', value:'3 pts', label:'Marcador exacto', color:'#4ade80',
-    desc:'Acertás el marcador exacto de ambos equipos.' },
+    desc:'Acertá el marcador exacto del partido.' },
   { icon:'✅', value:'1 pt',  label:'Ganador o empate', color:'#fbbf24',
     desc:'Acertás quién gana (o que empata), aunque el score no coincida.' },
   { icon:'⚽', value:'+1 pt', label:'Primer goleador', color:'#1B4FD8',
