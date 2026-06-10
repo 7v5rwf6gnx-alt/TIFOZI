@@ -403,6 +403,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
               ) : !hasPlayers ? (
                 <p className="text-center py-5 text-gray-500 text-xs">Plantel no disponible</p>
               ) : (
+                <>
                 <button
                 onClick={() => { onSelect('NONE'); setOpen(false) }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 border-b border-white/5 text-left transition-all hover:bg-white/5 ${selectedId === 'NONE' ? 'bg-white/8' : ''}`}>
@@ -433,6 +434,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
                     </div>
                   ))}
                 </div>
+                </>
               )}
             </div>
           )}
