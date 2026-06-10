@@ -53,14 +53,14 @@ export default function Navbar() {
           <div className="flex items-stretch gap-0.5">
             {user ? (
               <>
-                <NavLink to="/dashboard"       className={navLink}>Ligas</NavLink>
-                <NavLink to="/mis-pronosticos" className={navLink}>Pronósticos</NavLink>
-                <NavLink to="/ranking"         className={navLink}>Ranking</NavLink>
-                <NavLink to="/grupos"          className={navLink}>Grupos</NavLink>
+                <NavLink to="/dashboard"       className={`${navLink} hidden md:flex`}>Ligas</NavLink>
+                <NavLink to="/mis-pronosticos" className={`${navLink} hidden md:flex`}>Pronósticos</NavLink>
+                <NavLink to="/ranking"         className={`${navLink} hidden md:flex`}>Ranking</NavLink>
+                <NavLink to="/grupos"          className={`${navLink} hidden md:flex`}>Grupos</NavLink>
                 {profile?.is_admin && (
                   <NavLink to="/admin"
                     className={({ isActive }) =>
-                      `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      `hidden md:flex px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         isActive ? 'text-yellow-300' : 'text-yellow-400/70 hover:text-yellow-300'
                       }`}>
                     ⚙ Admin
@@ -121,9 +121,9 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <NavLink to="/grupos"   className={navLink}>Grupos</NavLink>
-                <NavLink to="/partidos" className={navLink}>Partidos</NavLink>
-                <NavLink to="/ranking"  className={navLink}>Ranking</NavLink>
+                <NavLink to="/grupos"   className={`${navLink} hidden md:flex`}>Grupos</NavLink>
+                <NavLink to="/partidos" className={`${navLink} hidden md:flex`}>Partidos</NavLink>
+                <NavLink to="/ranking"  className={`${navLink} hidden md:flex`}>Ranking</NavLink>
                 <Link to="/auth"
                   className="ml-3 font-bold text-sm px-4 py-2 rounded-xl transition-all text-[#0A1628] bg-white hover:bg-gray-100 shadow-sm">
                   Ingresar

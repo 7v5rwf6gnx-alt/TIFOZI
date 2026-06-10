@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
+import BottomNav from './components/BottomNav'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import OnboardingModal from './components/OnboardingModal'
@@ -111,6 +112,7 @@ export default function App() {
             <PersistentHeroVideo />
             <RouteBackground>
               <Navbar />
+              <div className="pb-20 md:pb-0">
               <Routes>
                 <Route element={<AnimatedRoutes />}>
                   <Route path="/"                element={<Home />} />
@@ -141,6 +143,8 @@ export default function App() {
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>
+              </div>
+              <BottomNav />
             </RouteBackground>
           </OnboardingGate>
         </ErrorBoundary>
