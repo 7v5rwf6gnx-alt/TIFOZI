@@ -313,7 +313,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
 
   useEffect(() => {
-    if (!selectedId) { setSelectedPlayer(null); return }
+    if (!selectedId || selectedId === 'NONE') { setSelectedPlayer(null); return }
     const all = [...players.home, ...players.away]
     const found = all.find(p => p.id === selectedId)
     if (found) { setSelectedPlayer(found); return }
@@ -353,7 +353,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
         <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">
           ⚡ Primer goleador <span className="text-gray-600 font-normal">(+1 pt)</span>
         </span>
-        {selectedPlayer && !disabled && (
+        {(selectedPlayer || selectedId === 'NONE') && !disabled && (
           <button onClick={e => { e.stopPropagation(); onSelect(null) }} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
             Quitar
           </button>
@@ -374,12 +374,19 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
           <button
             onClick={() => setOpen(v => !v)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border-2 text-xs transition-all font-semibold ${
-              selectedPlayer ? 'bg-yellow-900/20 border-yellow-500/40' : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
+              selectedPlayer ? 'bg-yellow-900/20 border-yellow-500/40'
+              : selectedId === 'NONE' ? 'bg-white/5 border-white/20 text-gray-400'
+              : 'bg-[#242424] border-[#444] text-gray-500 hover:border-[#1B4FD8] hover:text-[#1B4FD8]'
             }`}>
             {selectedPlayer ? (
               <span className="flex items-center gap-2 min-w-0">
                 <PlayerFace player={selectedPlayer} size={28} />
                 <span className="text-yellow-400 font-bold truncate">{selectedPlayer.nombre}</span>
+              </span>
+            ) : selectedId === 'NONE' ? (
+              <span className="flex items-center gap-2 min-w-0">
+                <span style={{ fontSize: 16 }}>⛔</span>
+                <span className="text-gray-300 font-bold">Sin goleador</span>
               </span>
             ) : (
               <span className="truncate">Seleccionar goleador...</span>
@@ -396,7 +403,13 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
               ) : !hasPlayers ? (
                 <p className="text-center py-5 text-gray-500 text-xs">Plantel no disponible</p>
               ) : (
-                <div className="grid grid-cols-2 divide-x divide-white/5 max-h-72 overflow-y-auto">
+                <button
+                onClick={() => { onSelect('NONE'); setOpen(false) }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 border-b border-white/5 text-left transition-all hover:bg-white/5 ${selectedId === 'NONE' ? 'bg-white/8' : ''}`}>
+                <span style={{ fontSize: 18 }}>⛔</span>
+                <span className={`text-sm font-semibold ${selectedId === 'NONE' ? 'text-gray-200' : 'text-gray-500'}`}>Sin goleador</span>
+              </button>
+              <div className="grid grid-cols-2 divide-x divide-white/5 max-h-72 overflow-y-auto">
                   {teamsConfig.map(({ team, list }) => (
                     <div key={team.id}>
                       <div className="sticky top-0 bg-[#242424] px-3 py-2 border-b border-white/5 flex items-center gap-1.5">
@@ -509,7 +522,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
     const as = awayScore !== '' ? parseInt(awayScore) : prediction?.away_score
     if (hs != null && as != null) {
       setSaving(true)
-      const err = await onSave(match.id, hs, as, id)
+      const err = await onSave(match.id, hs, as, id === 'NONE' ? null : id)
       setSaving(false)
       if (err) { setSaveError(err); return }
       setSaved(true); setShowToast(true)
@@ -525,7 +538,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
   async function handleSave() {
     if (homeScore === '' || awayScore === '') return
     setSaving(true); setSaveError(null)
-    const err = await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId)
+    const err = await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId === 'NONE' ? null : goalscorerId)
     setSaving(false)
     if (err) { setSaveError(err); return }
     setSaved(true); setShowToast(true)
