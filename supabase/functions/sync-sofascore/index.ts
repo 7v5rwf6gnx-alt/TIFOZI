@@ -832,6 +832,117 @@ async function syncPhotos() {
   return json({ totalUpdated, logs })
 }
 
+// ── ACTION: sync-api-football-photos ─────────────────────────────────────────
+async function syncApiFootballPhotos(apiKey?: string | null, fromIdx = 0) {
+  const APIFB_KEY  = Deno.env.get('API_FOOTBALL_KEY') ?? apiKey
+  if (!APIFB_KEY) return json({ error: 'API_FOOTBALL_KEY secret not set' }, 400)
+
+  async function apiFetch(path: string) {
+    const res = await fetch(`https://v3.football.api-sports.io${path}`, {
+      headers: { 'x-apisports-key': APIFB_KEY }
+    })
+    return res.json()
+  }
+
+  const norm = (s: string) =>
+    (s ?? '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9 ]/g, '').trim()
+
+  const nameSim = (a: string, b: string): number => {
+    const aw = norm(a).split(/\s+/).filter(w => w.length > 1)
+    const bw = norm(b).split(/\s+/).filter(w => w.length > 1)
+    if (!aw.length || !bw.length) return 0
+    let s = 0
+    if (aw[aw.length - 1] === bw[bw.length - 1]) s += 4
+    for (const w of aw) if (w.length > 2 && bw.includes(w)) s += 1
+    return s
+  }
+
+  // Hardcoded API-Football national team IDs for all 48 WC 2026 teams
+  const APIFB_TEAM_IDS: Record<string, number> = {
+    'Argentina': 26, 'Australia': 20, 'Austria': 775, 'Algeria': 1532,
+    'Belgium': 1, 'Bosnia & Herz.': 1113, 'Brazil': 6,
+    'Canada': 5529, 'Cape Verde': 1533, 'Colombia': 8, 'Croatia': 3, 'Curaçao': 5530,
+    'Czechia': 770, 'DR Congo': 1508, 'Ecuador': 2382, 'Egypt': 32, 'England': 10,
+    'France': 2, 'Germany': 25, 'Ghana': 1504,
+    'Haiti': 2386, 'Iran': 22, 'Iraq': 1567, 'Ivory Coast': 1501,
+    'Japan': 12, 'Jordan': 1548, 'Mexico': 16, 'Morocco': 31,
+    'Netherlands': 1118, 'New Zealand': 4673, 'Norway': 1090,
+    'Panama': 11, 'Paraguay': 2380, 'Portugal': 27,
+    'Qatar': 1569, 'Saudi Arabia': 23, 'Scotland': 1108, 'Senegal': 13,
+    'South Africa': 1531, 'South Korea': 17, 'Spain': 9, 'Sweden': 5,
+    'Switzerland': 15, 'Tunisia': 28, 'Turkey': 777,
+    'United States': 2384, 'Uruguay': 7, 'Uzbekistan': 1568,
+  }
+
+  const { data: dbTeams } = await supabase.from('teams').select('id, name, code')
+  const logs: string[] = []
+  let totalUpdated = 0
+
+  const teamIdMap: Record<string, number> = {}
+  for (const dbt of dbTeams ?? []) {
+    const apiFbId = APIFB_TEAM_IDS[dbt.name]
+    if (apiFbId) teamIdMap[dbt.id] = apiFbId
+  }
+  logs.push(`Teams matched: ${Object.keys(teamIdMap).length}/${dbTeams?.length ?? 0}`)
+
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+  // Process in slices of 9 teams to respect 10 req/min rate limit
+  const allTeams = (dbTeams ?? []).filter(t => teamIdMap[t.id])
+  const from = fromIdx
+  const slice = allTeams.slice(from, from + 9)
+  const nextFrom = from + 9 < allTeams.length ? from + 9 : null
+
+  for (let i = 0; i < slice.length; i++) {
+    const dbt = slice[i]
+    const apiFbId = teamIdMap[dbt.id]
+    if (i > 0) await delay(7000)  // stay under 10 req/min
+
+    const squadData  = await apiFetch(`/players/squads?team=${apiFbId}`)
+    const players: any[] = (squadData.response ?? [])[0]?.players ?? []
+    if (!players.length) { logs.push(`⚠️ ${dbt.name}: sin jugadores`); continue }
+
+    const { data: dbPlayers } = await supabase
+      .from('jugadores').select('id, nombre').eq('equipo_id', dbt.id)
+    if (!dbPlayers?.length) continue
+
+    let matched = 0
+    const updates: Promise<any>[] = []
+    for (const dbp of dbPlayers) {
+      let best: any = null, bestScore = 2
+      for (const fp of players) {
+        const s = nameSim(dbp.nombre, fp.name)
+        if (s > bestScore) { bestScore = s; best = fp }
+      }
+      if (best?.photo) {
+        updates.push(supabase.from('jugadores').update({ foto_url: best.photo }).eq('id', dbp.id))
+        matched++
+      }
+    }
+    await Promise.all(updates)
+    totalUpdated += matched
+    logs.push(`✅ ${dbt.name}: ${matched}/${dbPlayers.length}`)
+  }
+
+  return json({ totalUpdated, nextFrom, processed: `${from}-${from + slice.length - 1} of ${allTeams.length}`, logs })
+}
+
+// ── ACTION: test-sofa-image — check if edge fn can fetch SofaScore player images
+async function testSofaImage(sofascoreId: string) {
+  const url = `https://api.sofascore.com/api/v1/player/${sofascoreId}/image`
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+    'Referer': 'https://www.sofascore.com/',
+    'Origin': 'https://www.sofascore.com',
+  }
+  const res = await fetch(url, { headers, redirect: 'follow' })
+  const contentType = res.headers.get('content-type') ?? 'unknown'
+  return json({ status: res.status, contentType, url, size: res.headers.get('content-length') })
+}
+
 // ── ACTION: probe — test a SofaScore teamId ───────────────────────────────────
 async function probeTeam(teamId: string) {
   const data    = await sofaFetch(`/teams/get-squad?teamId=${teamId}`)
@@ -860,7 +971,9 @@ Deno.serve(async (req) => {
     if (action === 'team-ids')    return await syncTeamIds()
     if (action === 'backfill')    return await backfill()
     if (action === 'score')       return await scoreAll()
-    if (action === 'sync-photos') return await syncPhotos()
+    if (action === 'sync-photos')           return await syncPhotos()
+    if (action === 'sync-api-football-photos') return await syncApiFootballPhotos(url.searchParams.get('apikey'), parseInt(url.searchParams.get('from') ?? '0'))
+    if (action === 'test-sofa-image')  return await testSofaImage(url.searchParams.get('id') ?? '276')
     if (action === 'probe')       return await probeTeam(url.searchParams.get('teamId') ?? '')
 
     return json({
