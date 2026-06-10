@@ -283,17 +283,37 @@ function H2HSection({ match }) {
 }
 
 // ── Player face photo ─────────────────────────────────────────────────────────
+const POS_COLORS = {
+  portero:       { bg: '#92400E', text: '#FCD34D' },
+  defensa:       { bg: '#1E3A8A', text: '#93C5FD' },
+  mediocampista: { bg: '#064E3B', text: '#6EE7B7' },
+  delantero:     { bg: '#7F1D1D', text: '#FCA5A5' },
+}
+
 function PlayerFace({ player, size = 32 }) {
   const [err, setErr] = useState(false)
-  const src = player?.sofascore_id
-    ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
-    : null
+  const src = player?.foto_url || (
+    player?.sofascore_id
+      ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
+      : null
+  )
+
   if (!src || err) {
+    const pos   = player?.posicion?.toLowerCase()
+    const color = POS_COLORS[pos] ?? { bg: '#1e3a5f', text: '#93C5FD' }
+    const num   = player?.numero_camiseta
+    const initials = player?.nombre
+      ? player.nombre.trim().split(/\s+/).slice(-2).map(w => w[0]).join('').toUpperCase()
+      : '?'
     return (
-      <span className="rounded-full flex items-center justify-center text-white font-black shrink-0"
-            style={{ width: size, height: size, fontSize: size * 0.38, backgroundColor: '#333' }}>
-        {player?.numero_camiseta ?? '?'}
-      </span>
+      <div className="rounded-full flex flex-col items-center justify-center shrink-0 select-none"
+           style={{ width: size, height: size, backgroundColor: color.bg, border: `1.5px solid ${color.text}22` }}>
+        {num != null ? (
+          <span style={{ color: color.text, fontSize: size * 0.36, fontWeight: 900, lineHeight: 1 }}>{num}</span>
+        ) : (
+          <span style={{ color: color.text, fontSize: size * 0.32, fontWeight: 900, lineHeight: 1 }}>{initials}</span>
+        )}
+      </div>
     )
   }
   return (
@@ -317,7 +337,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     const all = [...players.home, ...players.away]
     const found = all.find(p => p.id === selectedId)
     if (found) { setSelectedPlayer(found); return }
-    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id')
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id, foto_url')
       .eq('id', selectedId).single()
       .then(({ data }) => { if (data) setSelectedPlayer(data) })
   }, [selectedId, players])
@@ -328,7 +348,7 @@ function GoalscorerSelector({ match, selectedId, onSelect, disabled }) {
     const awayId = match.away_team?.id
     if (!homeId || !awayId) return
     setLoading(true); setFetchError(false)
-    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id')
+    supabase.from('jugadores').select('id, nombre, numero_camiseta, posicion, equipo_id, sofascore_id, foto_url')
       .in('equipo_id', [homeId, awayId])
       .then(({ data, error }) => {
         if (error) { setFetchError(true); setLoading(false); return }
