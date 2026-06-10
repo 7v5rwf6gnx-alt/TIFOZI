@@ -27,7 +27,7 @@ export default function Navbar() {
   }
 
   const navLink = ({ isActive }) =>
-    `px-3 py-1.5 text-sm font-semibold transition-colors duration-150 border-b-2 ${
+    `hidden md:flex px-3 py-1.5 text-sm font-semibold transition-colors duration-150 border-b-2 ${
       isActive
         ? 'text-white border-[#FFD700]'
         : 'text-white/70 hover:text-white border-transparent'
@@ -53,10 +53,10 @@ export default function Navbar() {
           <div className="flex items-stretch gap-0.5">
             {user ? (
               <>
-                <NavLink to="/dashboard"       className={`${navLink} hidden md:flex`}>Ligas</NavLink>
-                <NavLink to="/mis-pronosticos" className={`${navLink} hidden md:flex`}>Pronósticos</NavLink>
-                <NavLink to="/ranking"         className={`${navLink} hidden md:flex`}>Ranking</NavLink>
-                <NavLink to="/grupos"          className={`${navLink} hidden md:flex`}>Grupos</NavLink>
+                <NavLink to="/dashboard"       className={navLink}>Ligas</NavLink>
+                <NavLink to="/mis-pronosticos" className={navLink}>Pronósticos</NavLink>
+                <NavLink to="/ranking"         className={navLink}>Ranking</NavLink>
+                <NavLink to="/grupos"          className={navLink}>Grupos</NavLink>
                 {profile?.is_admin && (
                   <NavLink to="/admin"
                     className={({ isActive }) =>
@@ -121,9 +121,9 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <NavLink to="/grupos"   className={`${navLink} hidden md:flex`}>Grupos</NavLink>
-                <NavLink to="/partidos" className={`${navLink} hidden md:flex`}>Partidos</NavLink>
-                <NavLink to="/ranking"  className={`${navLink} hidden md:flex`}>Ranking</NavLink>
+                <NavLink to="/grupos"   className={navLink}>Grupos</NavLink>
+                <NavLink to="/partidos" className={navLink}>Partidos</NavLink>
+                <NavLink to="/ranking"  className={navLink}>Ranking</NavLink>
                 <Link to="/auth"
                   className="ml-3 font-bold text-sm px-4 py-2 rounded-xl transition-all text-[#0A1628] bg-white hover:bg-gray-100 shadow-sm">
                   Ingresar
