@@ -516,7 +516,12 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
   const finished    = match.status === 'finished'
   const [homeScore, setHomeScore]       = useState(prediction?.home_score ?? '')
   const [awayScore, setAwayScore]       = useState(prediction?.away_score ?? '')
-  const [goalscorerId, setGoalscorerId] = useState(prediction?.primer_goleador_prediccion_id ?? null)
+  const [goalscorerId, setGoalscorerId] = useState(() => {
+    const dbId = prediction?.primer_goleador_prediccion_id
+    if (dbId) return dbId
+    if (localStorage.getItem(`nogol_${match.id}`)) return 'NONE'
+    return null
+  })
   const [saving, setSaving]             = useState(false)
   const [saved, setSaved]               = useState(false)
   const [shake, setShake]               = useState(false)
@@ -531,15 +536,24 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
   const liveMinute = liveData?.minute ?? dbMinute ?? null
 
   useEffect(() => {
-    setGoalscorerId(prediction?.primer_goleador_prediccion_id ?? null)
-  }, [prediction?.primer_goleador_prediccion_id])
+    const dbId = prediction?.primer_goleador_prediccion_id
+    if (dbId) {
+      localStorage.removeItem(`nogol_${match.id}`)
+      setGoalscorerId(dbId)
+    } else if (localStorage.getItem(`nogol_${match.id}`)) {
+      setGoalscorerId('NONE')
+    } else {
+      setGoalscorerId(null)
+    }
+  }, [prediction?.primer_goleador_prediccion_id, match.id])
 
   function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
 
   async function handleGoalscorerSelect(id) {
     setGoalscorerId(id)
+    if (id === 'NONE') localStorage.setItem(`nogol_${match.id}`, '1')
+    else localStorage.removeItem(`nogol_${match.id}`)
     setSaveError(null)
-    // Use typed scores if available, else fall back to already-saved scores
     const hs = homeScore !== '' ? parseInt(homeScore) : prediction?.home_score
     const as = awayScore !== '' ? parseInt(awayScore) : prediction?.away_score
     if (hs != null && as != null) {
@@ -572,6 +586,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
     if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000); return }
     setDeleting(true)
     await onDelete(match.id)
+    localStorage.removeItem(`nogol_${match.id}`)
     setHomeScore(''); setAwayScore(''); setGoalscorerId(null)
     setConfirmDelete(false); setDeleting(false)
   }
