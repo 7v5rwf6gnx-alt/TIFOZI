@@ -224,9 +224,7 @@ function RankingTab({ ligaId, userId, torneo }) {
           supabase.from('matches')
             .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
             .eq('stage', 'group').order('match_number'),
-          supabase.from('predictions')
-            .select('user_id, match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
-            .in('user_id', memberIds),
+          supabase.rpc('get_liga_predictions', { p_liga_id: ligaId }).limit(10000),
         ])
         setMatches(mData || [])
         const map = {}
@@ -240,7 +238,7 @@ function RankingTab({ ligaId, userId, torneo }) {
 
         if (playerIds.size > 0) {
           const { data: playersData } = await supabase
-            .from('jugadores').select('id, nombre, sofascore_id')
+            .from('jugadores').select('id, nombre, sofascore_id, foto_url')
             .in('id', [...playerIds])
           const pMap = {}
           for (const pl of playersData || []) pMap[pl.id] = pl
@@ -896,9 +894,7 @@ function GoleadoresTab({ ligaId, userId }) {
           supabase.from('matches')
             .select('id, match_number, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
             .eq('stage', 'group').order('match_number'),
-          supabase.from('predictions')
-            .select('user_id, match_id, primer_goleador_prediccion_id, bonus_goleador')
-            .in('user_id', memberIds),
+          supabase.rpc('get_liga_predictions', { p_liga_id: ligaId }).limit(10000),
         ])
 
         setMatches(mData || [])
@@ -915,7 +911,7 @@ function GoleadoresTab({ ligaId, userId }) {
         if (playerIds.size > 0) {
           const { data: playersData } = await supabase
             .from('jugadores')
-            .select('id, nombre, sofascore_id')
+            .select('id, nombre, sofascore_id, foto_url')
             .in('id', [...playerIds])
           const pMap = {}
           for (const pl of playersData || []) pMap[pl.id] = pl

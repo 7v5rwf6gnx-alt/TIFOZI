@@ -292,11 +292,7 @@ const POS_COLORS = {
 
 function PlayerFace({ player, size = 32 }) {
   const [err, setErr] = useState(false)
-  const src = player?.foto_url || (
-    player?.sofascore_id
-      ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
-      : null
-  )
+  const src = player?.foto_url || null
 
   if (!src || err) {
     const pos   = player?.posicion?.toLowerCase()
@@ -522,6 +518,8 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
     if (localStorage.getItem(`nogol_${match.id}`)) return 'NONE'
     return null
   })
+  const hasSavedPrediction = prediction?.home_score != null
+  const [isDirty, setIsDirty]           = useState(false)
   const [saving, setSaving]             = useState(false)
   const [saved, setSaved]               = useState(false)
   const [shake, setShake]               = useState(false)
@@ -545,7 +543,8 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
     } else {
       setGoalscorerId(null)
     }
-  }, [prediction?.primer_goleador_prediccion_id, match.id])
+    setIsDirty(false)
+  }, [prediction?.home_score, prediction?.away_score, prediction?.primer_goleador_prediccion_id, match.id])
 
   function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
 
@@ -561,6 +560,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
       const err = await onSave(match.id, hs, as, id === 'NONE' ? null : id)
       setSaving(false)
       if (err) { setSaveError(err); return }
+      setIsDirty(false)
       setSaved(true); setShowToast(true)
       setTimeout(() => setSaved(false), 2000)
       setTimeout(() => setShowToast(false), 2500)
@@ -577,6 +577,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
     const err = await onSave(match.id, parseInt(homeScore), parseInt(awayScore), goalscorerId === 'NONE' ? null : goalscorerId)
     setSaving(false)
     if (err) { setSaveError(err); return }
+    setIsDirty(false)
     setSaved(true); setShowToast(true)
     setTimeout(() => setSaved(false), 2000)
     setTimeout(() => setShowToast(false), 2500)
@@ -660,7 +661,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
               {pointsLabel}
             </span>
           )}
-          {(match.status === 'live' || isLive) && (
+          {!finished && (match.status === 'live' || isLive) && (
             <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full border border-green-500/30">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse inline-block" />
               {liveBadgeLabel}
@@ -676,44 +677,74 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
       </div>
 
       {/* Teams + scores */}
-      <div className="flex items-center gap-3 sm:gap-5 px-5 py-3">
-        <TeamBlock flagUrl={match.home_team?.flag_url} name={match.home_team?.name} code={match.home_team?.code} />
-        <div className="shrink-0 flex items-center gap-1 sm:gap-2">
-          {locked ? (
-            <>
-              <ScoreDisplay value={homeScore} />
-              <span className="font-display text-2xl sm:text-3xl text-gray-600">—</span>
-              <ScoreDisplay value={awayScore} />
-            </>
-          ) : (
-            <>
-              <ScoreInput value={homeScore} onChange={setHomeScore} />
-              <span className="font-display text-2xl sm:text-3xl text-gray-600">—</span>
-              <ScoreInput value={awayScore} onChange={setAwayScore} />
-            </>
-          )}
+      {finished ? (
+        /* ── Google-style result card ── */
+        <div className="px-5 pt-3 pb-3">
+          <div className="flex items-center justify-between gap-2">
+            {/* Home team */}
+            <div className="flex flex-col items-center gap-2" style={{ flex: 1 }}>
+              <img src={match.home_team?.flag_url} alt={match.home_team?.name}
+                style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+              <span className="text-white text-[11px] font-bold text-center leading-tight">{match.home_team?.name}</span>
+            </div>
+
+            {/* Center: FT + score + prediction */}
+            <div className="flex flex-col items-center gap-1 px-1">
+              <span className="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full border"
+                style={{ color: '#00A550', backgroundColor: 'rgba(0,165,80,0.1)', borderColor: 'rgba(0,165,80,0.3)' }}>
+                FULL-TIME
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-display leading-none" style={{ fontSize: 48, color: 'white' }}>{match.home_score}</span>
+                <span className="font-display leading-none" style={{ fontSize: 28, color: '#4B5563' }}>-</span>
+                <span className="font-display leading-none" style={{ fontSize: 48, color: 'white' }}>{match.away_score}</span>
+              </div>
+              {(homeScore !== '' && homeScore != null) && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-gray-600 text-[10px]">Tu pick: {homeScore}–{awayScore}</span>
+                  {bonus > 0 && <span className="text-[10px] font-bold text-yellow-400">⚡+{bonus}</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Away team */}
+            <div className="flex flex-col items-center gap-2" style={{ flex: 1 }}>
+              <img src={match.away_team?.flag_url} alt={match.away_team?.name}
+                style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+              <span className="text-white text-[11px] font-bold text-center leading-tight">{match.away_team?.name}</span>
+            </div>
+          </div>
         </div>
-        <TeamBlock flagUrl={match.away_team?.flag_url} name={match.away_team?.name} code={match.away_team?.code} />
-      </div>
+      ) : (
+        <div className="flex items-center gap-3 sm:gap-5 px-5 py-3">
+          <TeamBlock flagUrl={match.home_team?.flag_url} name={match.home_team?.name} code={match.home_team?.code} />
+          <div className="shrink-0 flex items-center gap-1 sm:gap-2">
+            {locked ? (
+              <>
+                <ScoreDisplay value={homeScore} />
+                <span className="font-display text-2xl sm:text-3xl text-gray-600">—</span>
+                <ScoreDisplay value={awayScore} />
+              </>
+            ) : (
+              <>
+                <ScoreInput value={homeScore} onChange={v => { setHomeScore(v); setIsDirty(true) }} />
+                <span className="font-display text-2xl sm:text-3xl text-gray-600">—</span>
+                <ScoreInput value={awayScore} onChange={v => { setAwayScore(v); setIsDirty(true) }} />
+              </>
+            )}
+          </div>
+          <TeamBlock flagUrl={match.away_team?.flag_url} name={match.away_team?.name} code={match.away_team?.code} />
+        </div>
+      )}
 
       {/* Live score */}
-      {isLive && liveData.homeScore != null && (
+      {isLive && !finished && liveData.homeScore != null && (
         <div className="px-5 pb-2 text-center text-xs text-gray-500">
           En vivo:{' '}
           <span className="font-display text-lg text-green-400">
             {liveData.homeScore}–{liveData.awayScore}
           </span>
           {liveMinute && <span className="ml-1.5 text-green-600 text-xs">{liveMinute}'</span>}
-        </div>
-      )}
-
-      {/* Actual result */}
-      {finished && (
-        <div className="px-5 pb-2 text-center text-xs text-gray-500">
-          Resultado real:{' '}
-          <span className="font-display text-lg text-gray-300">
-            {match.home_score}–{match.away_score}
-          </span>
         </div>
       )}
 
@@ -747,10 +778,10 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
             onClick={handleSave}
             disabled={saving || homeScore === '' || awayScore === ''}
             className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all disabled:opacity-40 active:scale-95 ${
-              saved ? 'bg-green-900/30 text-green-400 border border-green-500/30 animate-count-flash' : 'text-white'
+              !isDirty && hasSavedPrediction ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'text-white'
             }`}
-            style={!saved ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}>
-            {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar pronóstico'}
+            style={isDirty || !hasSavedPrediction ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}>
+            {saving ? 'Guardando...' : (!isDirty && hasSavedPrediction) ? '✓ Pronóstico guardado' : 'Guardar pronóstico'}
           </button>
           {onDelete && prediction?.home_score != null && (
             <button

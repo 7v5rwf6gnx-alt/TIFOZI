@@ -1,12 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const RAPIDAPI_KEY  = Deno.env.get('RAPIDAPI_KEY')!
-const RAPIDAPI_HOST = Deno.env.get('RAPIDAPI_HOST') ?? 'fotmob-api.p.rapidapi.com'
-const API_BASE      = `https://${RAPIDAPI_HOST}`
-
-// Overridable via env var; call ?action=discover to find the right ID for WC 2026
-const WC_FOTMOB_ID   = parseInt(Deno.env.get('WC_FOTMOB_LEAGUE_ID') ?? '77')
-const MATCH_DURATION = 120  // minutes after kickoff before we try to finalize
+const TSDB_BASE     = 'https://www.thesportsdb.com/api/v1/json/3'
+const MATCH_MINUTES = 95   // minutes after kickoff to attempt sync (90min + ~5 stoppage)
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -14,63 +9,34 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 )
 
-const apiHeaders = {
-  'X-RapidAPI-Key':  RAPIDAPI_KEY,
-  'X-RapidAPI-Host': RAPIDAPI_HOST,
-}
-
-async function apiFetch(path: string) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: apiHeaders })
-  if (!res.ok) throw new Error(`FotMob API ${res.status}: ${await res.text()}`)
-  return res.json()
-}
-
-// Parse "2 - 1" → { home: 2, away: 1 }
-function parseScore(scoreStr: string): { home: number; away: number } | null {
-  if (!scoreStr) return null
-  const parts = scoreStr.trim().split(' - ')
-  if (parts.length !== 2) return null
-  const home = parseInt(parts[0]), away = parseInt(parts[1])
-  if (isNaN(home) || isNaN(away)) return null
-  return { home, away }
-}
-
-function toFmtDate(dateStr: string): string {
-  return (dateStr as string).slice(0, 10).replace(/-/g, '') // YYYYMMDD
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T12:00:00Z')
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
-function nameMatch(a: string, b: string): boolean {
-  const clean = (s: string) => s.replace(/[^a-z]/g, '')
-  const ca = clean(a), cb = clean(b)
-  return ca.startsWith(cb.slice(0, 4)) || cb.startsWith(ca.slice(0, 4))
-    || ca.includes(cb.slice(0, 5)) || cb.includes(ca.slice(0, 5))
-}
-
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status, headers: { 'Content-Type': 'application/json' },
   })
 }
 
-// ── Sync World Cup results ────────────────────────────────────────────────────
+async function tsdbFetch(path: string) {
+  const res = await fetch(`${TSDB_BASE}${path}`)
+  if (!res.ok) throw new Error(`TheSportsDB ${res.status}: ${path}`)
+  return res.json()
+}
+
+// ── Phase 1: Sync unfinished matches ─────────────────────────────────────────
 async function syncResults() {
+  const logs: string[] = []
+  let updated = 0
+  let scorersUpdated = 0
+
+  // ── Phase 1: Sync score/status for unfinished matches ──
   const { data: pending } = await supabase
     .from('matches')
-    .select('id, match_date, match_time, fotmob_id')
+    .select('id, match_date, match_time, sofascore_id, home_team_id, away_team_id')
     .eq('competition', 'world_cup')
     .neq('status', 'finished')
-    .not('fotmob_id', 'is', null)
+    .not('sofascore_id', 'is', null)
 
-  if (!pending?.length) return json({ message: 'Sin partidos pendientes', updated: 0 })
-
-  const cutoffMs = Date.now() - MATCH_DURATION * 60_000
-  const toSync = pending.filter(m => {
+  const cutoffMs = Date.now() - MATCH_MINUTES * 60_000
+  const toSync = (pending ?? []).filter(m => {
     if (!m.match_time || !m.match_date) return false
     const [h, min] = (m.match_time as string).split(':').map(Number)
     const d = (m.match_date as string).slice(0, 10)
@@ -78,127 +44,158 @@ async function syncResults() {
     return kickoff.getTime() < cutoffMs
   })
 
-  if (!toSync.length) return json({ message: 'Ningún partido listo para sincronizar', updated: 0 })
+  for (const match of toSync) {
+    try {
+      const data = await tsdbFetch(`/lookupevent.php?id=${match.sofascore_id}`)
+      const evt  = data?.events?.[0]
 
-  const byDate: Record<string, typeof toSync> = {}
-  for (const m of toSync) {
-    const key = toFmtDate(m.match_date as string)
-    ;(byDate[key] ??= []).push(m)
-  }
+      if (!evt) { logs.push(`Sin datos: ${match.sofascore_id}`); continue }
 
-  let updated = 0
-  const logs: string[] = []
-
-  for (const [date, matches] of Object.entries(byDate)) {
-    const data = await apiFetch(`/matches?date=${date}`)
-    const leagues: any[] = data.leagues ?? []
-
-    const league = leagues.find(l => l.id === WC_FOTMOB_ID)
-      ?? leagues.find(l => (l.name as string)?.toLowerCase().includes('world cup'))
-
-    if (!league) { logs.push(`No WC league for ${date}`); continue }
-
-    const byId: Record<string, any> = {}
-    for (const f of (league.matches ?? [])) byId[String(f.id)] = f
-
-    for (const match of matches) {
-      const fixture = byId[String(match.fotmob_id)]
-      if (!fixture) { logs.push(`Sin fixture fotmob_id=${match.fotmob_id}`); continue }
-
-      if (!fixture.status?.finished) {
-        logs.push(`Partido ${match.fotmob_id} aún en progreso`)
+      const status = (evt.strStatus as string)?.toUpperCase()
+      if (status !== 'FT' && status !== 'AOT' && status !== 'AP') {
+        logs.push(`En progreso: ${match.sofascore_id} (${evt.strStatus})`)
         continue
       }
 
-      const score = parseScore(fixture.status.scoreStr)
-      if (!score) { logs.push(`No se pudo parsear scoreStr="${fixture.status.scoreStr}"`); continue }
+      const homeScore = parseInt(evt.intHomeScore)
+      const awayScore = parseInt(evt.intAwayScore)
+      if (isNaN(homeScore) || isNaN(awayScore)) {
+        logs.push(`Score inválido: ${match.sofascore_id}`)
+        continue
+      }
+
+      // Fetch goal timeline
+      const goals = await fetchGoals(match.sofascore_id)
+
+      // Try to resolve first scorer to a jugadores record
+      const scorerId = goals.length > 0
+        ? await resolveScorer(goals[0].player, [match.home_team_id, match.away_team_id])
+        : null
 
       const { error } = await supabase
         .from('matches')
-        .update({ home_score: score.home, away_score: score.away, status: 'finished' })
+        .update({
+          home_score:               homeScore,
+          away_score:               awayScore,
+          status:                   'finished',
+          goals:                    goals.length ? goals : null,
+          primer_goleador_real_id:  scorerId,
+        })
         .eq('id', match.id)
 
-      if (error) { logs.push(`Error actualizando ${match.id}: ${error.message}`); continue }
+      if (error) { logs.push(`DB error ${match.id}: ${error.message}`); continue }
 
-      logs.push(`✓ Partido ${match.fotmob_id}: ${score.home}-${score.away}`)
+      // If scorer wasn't found yet the trigger still fires and sets bonus=0.
+      // We'll catch it in Phase 2 on the next cron run.
+      logs.push(`✓ ${match.sofascore_id}: ${homeScore}-${awayScore} (${goals.length} goles, goleador: ${scorerId ?? 'pendiente'})`)
       updated++
+      await new Promise(r => setTimeout(r, 500))
+    } catch (err: any) {
+      logs.push(`Error ${match.sofascore_id}: ${err.message}`)
     }
   }
 
-  return json({ updated, total: toSync.length, logs })
-}
-
-// ── Populate fotmob_id for WC matches (one-time) ─────────────────────────────
-async function populateIds() {
-  const { data: matches } = await supabase
+  // ── Phase 2: Backfill first scorer for finished matches still missing it ──
+  const { data: noScorer } = await supabase
     .from('matches')
-    .select('id, match_date, fotmob_id, home_team:home_team_id(name, code), away_team:away_team_id(name, code)')
+    .select('id, sofascore_id, home_score, away_score, home_team_id, away_team_id')
     .eq('competition', 'world_cup')
-    .is('fotmob_id', null)
+    .eq('status', 'finished')
+    .is('primer_goleador_real_id', null)
+    .not('sofascore_id', 'is', null)
 
-  if (!matches?.length) return json({ message: 'Todos los partidos ya tienen fotmob_id' })
+  for (const match of noScorer ?? []) {
+    // Skip 0-0 draws — no scorer possible
+    if ((match.home_score ?? 0) + (match.away_score ?? 0) === 0) continue
 
-  const dates = [...new Set(matches.map(m => toFmtDate(m.match_date as string)))]
-  const allFixtures: any[] = []
+    try {
+      const goals = await fetchGoals(match.sofascore_id)
+      if (goals.length === 0) {
+        logs.push(`Timeline vacío aún: ${match.sofascore_id}`)
+        await new Promise(r => setTimeout(r, 300))
+        continue
+      }
 
-  for (const date of dates) {
-    const data = await apiFetch(`/matches?date=${date}`)
-    const leagues: any[] = data.leagues ?? []
-    const league = leagues.find(l => l.id === WC_FOTMOB_ID)
-      ?? leagues.find(l => (l.name as string)?.toLowerCase().includes('world cup'))
-    if (league?.matches) {
-      const isoDate = `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`
-      allFixtures.push(...league.matches.map((m: any) => ({ ...m, _date: isoDate })))
+      const firstPlayer = goals[0].player
+      const scorerId = await resolveScorer(firstPlayer, [match.home_team_id, match.away_team_id])
+
+      if (!scorerId) {
+        logs.push(`Sin jugador para "${firstPlayer}" (${match.sofascore_id}) — ajuste manual necesario`)
+        await new Promise(r => setTimeout(r, 300))
+        continue
+      }
+
+      // Update match
+      await supabase.from('matches').update({
+        primer_goleador_real_id: scorerId,
+        goals: goals,
+      }).eq('id', match.id)
+
+      // Recalculate bonuses manually (trigger won't re-fire for already-finished match)
+      await supabase.from('predictions')
+        .update({ bonus_goleador: 1, goleadores_acertados: 1 })
+        .eq('match_id', match.id)
+        .eq('primer_goleador_prediccion_id', scorerId)
+
+      // Zero out predictions that picked a different scorer
+      await supabase.from('predictions')
+        .update({ bonus_goleador: 0, goleadores_acertados: 0 })
+        .eq('match_id', match.id)
+        .not('primer_goleador_prediccion_id', 'eq', scorerId)
+        .not('primer_goleador_prediccion_id', 'is', null)
+
+      logs.push(`✓ Goleador: "${firstPlayer}" → jugador ${scorerId} (${match.sofascore_id})`)
+      scorersUpdated++
+      await new Promise(r => setTimeout(r, 500))
+    } catch (err: any) {
+      logs.push(`Error goleador ${match.sofascore_id}: ${err.message}`)
     }
   }
 
-  let mapped = 0
-  const unmapped: string[] = []
-
-  for (const fixture of allFixtures) {
-    const fHome = (fixture.home?.name as string)?.toLowerCase() ?? ''
-    const fAway = (fixture.away?.name as string)?.toLowerCase() ?? ''
-    const fDate = fixture._date as string
-
-    const match = matches.find(m => {
-      if ((m as any).fotmob_id) return false
-      const d  = (m.match_date as string).slice(0, 10)
-      const d1 = addDays(d, -1), d2 = addDays(d, 1)
-      if (![d, d1, d2].includes(fDate)) return false
-      const home = (m.home_team as any)?.name?.toLowerCase() ?? ''
-      const away = (m.away_team as any)?.name?.toLowerCase() ?? ''
-      return nameMatch(home, fHome) && nameMatch(away, fAway)
-    })
-
-    if (!match) {
-      unmapped.push(`${fixture.id}: ${fixture.home?.name} vs ${fixture.away?.name} (${fDate})`)
-      continue
-    }
-
-    await supabase.from('matches').update({ fotmob_id: fixture.id }).eq('id', match.id)
-    ;(match as any).fotmob_id = fixture.id
-    mapped++
+  if (!toSync.length && !noScorer?.length) {
+    return json({ message: 'Sin partidos para procesar', updated: 0, scorersUpdated: 0 })
   }
 
-  return json({ mapped, unmapped })
+  return json({ updated, scorersUpdated, total: toSync.length, logs })
 }
 
-// ── Discover available leagues for today (debug helper) ───────────────────────
-async function discoverLeagues() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const data = await apiFetch(`/matches?date=${today}`)
-  const leagues = (data.leagues ?? []).map((l: any) => ({
-    id: l.id, name: l.name, matchCount: l.matches?.length ?? 0,
-  }))
-  return json({ date: today, leagueCount: leagues.length, leagues })
+// ── Fetch and sort goal events from TheSportsDB timeline ─────────────────────
+async function fetchGoals(sofascore_id: number) {
+  try {
+    const tl = await tsdbFetch(`/eventtimeline.php?id=${sofascore_id}`)
+    const events: any[] = tl?.timeline ?? []
+    return events
+      .filter(e => e.strType === 'Goal' || e.strType === 'PenScore')
+      .map(e => ({
+        player: e.strPlayer ?? e.strPlayer1 ?? '',
+        team:   e.strTeam ?? '',
+        minute: parseInt(e.intTime) || 0,
+      }))
+      .sort((a, b) => a.minute - b.minute)
+  } catch {
+    return []
+  }
+}
+
+// ── Match a player name to a jugadores record within the match's teams ────────
+// Uses unaccent so "Quinones" matches "Quiñones", "Alvarez" matches "Álvarez", etc.
+async function resolveScorer(playerName: string, teamIds: string[]): Promise<string | null> {
+  if (!playerName) return null
+
+  const parts = playerName.toLowerCase().split(/[\s.]+/).filter(p => p.length > 2)
+
+  for (const part of parts) {
+    const { data: players } = await supabase
+      .rpc('find_jugador_by_name_part', { p_name: part, p_team_ids: teamIds })
+
+    if (players?.length === 1) return (players[0] as any).id
+  }
+  return null
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
+Deno.serve(async (_req) => {
   try {
-    const action = new URL(req.url).searchParams.get('action')
-    if (action === 'populate') return await populateIds()
-    if (action === 'discover') return await discoverLeagues()
     return await syncResults()
   } catch (err: any) {
     console.error(err)

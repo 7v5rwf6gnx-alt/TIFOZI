@@ -11,7 +11,11 @@ import { Flag } from '../components/FlagPair'
 // ─────────────────────────────────────────────────────────────────────────────
 const KICKOFF_UTC = new Date('2026-06-11T19:00:00Z')
 const WC_LOGO    = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/2026_FIFA_World_Cup_emblem_%28without_trophy%29.svg/500px-2026_FIFA_World_Cup_emblem_%28without_trophy%29.svg.png'
-const NEWS_URL        = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.espn.com%2Fespn%2Frss%2Fsoccer%2Fnews&count=8'
+const NEWS_FEEDS = [
+  'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Ffeeds.bbci.co.uk%2Fsport%2Ffootball%2Frss.xml&count=8',
+  'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.goal.com%2Ffeeds%2Fen%2Fnews&count=8',
+  'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.espn.com%2Fespn%2Frss%2Fsoccer%2Fnews&count=8',
+]
 
 const GROUP_COLORS = {
   A:'#1B4FD8',B:'#E8122D',C:'#00A550',D:'#1B4FD8',
@@ -696,13 +700,22 @@ export default function Home() {
   const [dataLoading,     setDataLoading]     = useState(true)
   const [newsLoading,     setNewsLoading]     = useState(true)
 
-  // News fetches (independent)
+  // News fetches (independent) — try feeds in order, use first with results
   useEffect(() => {
-    fetch(NEWS_URL)
-      .then(r => r.json())
-      .then(d => { if (d.status === 'ok') setNews(d.items || []) })
-      .catch(() => {})
-      .finally(() => setNewsLoading(false))
+    async function loadNews() {
+      for (const url of NEWS_FEEDS) {
+        try {
+          const r = await fetch(url)
+          const d = await r.json()
+          if (d.status === 'ok' && d.items?.length > 0) {
+            setNews(d.items.slice(0, 10))
+            break
+          }
+        } catch {}
+      }
+      setNewsLoading(false)
+    }
+    loadNews()
   }, [])
 
   // Main data fetch

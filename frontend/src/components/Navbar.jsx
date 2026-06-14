@@ -47,6 +47,9 @@ export default function Navbar() {
             <span className="font-display text-2xl text-white leading-none tracking-widest drop-shadow hidden sm:block">
               POLLAWC26
             </span>
+            <a href="https://www.betski.com" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+              <img src="/betski.png" alt="Betski" className="hidden sm:block w-auto opacity-90 hover:opacity-100 transition-opacity self-center" style={{ height: 22, marginTop: -1 }} />
+            </a>
           </Link>
 
           {/* Nav links */}
