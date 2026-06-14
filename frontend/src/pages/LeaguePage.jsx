@@ -127,14 +127,14 @@ function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserI
               className="flex items-center mb-2.5"
             >
               {/* Name column */}
-              <div style={{ minWidth: 172, flexShrink: 0, ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
+              <div style={{ width: 172, flexShrink: 0, overflow: 'hidden', ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
                    className="flex items-center gap-2 pr-3">
                 <span className="font-display text-base w-5 text-center shrink-0"
                       style={{ color: isMe ? '#1B4FD8' : '#4B5563' }}>
                   {originalRank}
                 </span>
                 <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} rank={originalRank <= 3 ? originalRank : null} />
-                <span className={`text-xs font-semibold truncate flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
+                <span className={`text-xs font-semibold truncate min-w-0 flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
                   {row.username}
                 </span>
                 <span className="font-display text-lg shrink-0" style={{ color: isMe ? '#1B4FD8' : '#6B7280' }}>
@@ -815,12 +815,12 @@ function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, current
               transition={{ delay: idx * 0.04, duration: 0.3 }}
               className="flex items-center mb-2.5"
             >
-              <div style={{ minWidth: 172, flexShrink: 0, ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
+              <div style={{ width: 172, flexShrink: 0, overflow: 'hidden', ...(isMe ? { background: 'rgba(27,79,216,0.10)', border: '1px solid rgba(27,79,216,0.2)', borderRadius: 8, padding: '2px 4px' } : {}) }}
                    className="flex items-center gap-2 pr-3">
                 <span className="font-display text-base w-5 text-center shrink-0"
                       style={{ color: isMe ? '#1B4FD8' : '#4B5563' }}>{originalRank}</span>
                 <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} rank={originalRank <= 3 ? originalRank : null} />
-                <span className={`text-xs font-semibold truncate flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>{row.username}</span>
+                <span className={`text-xs font-semibold truncate min-w-0 flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>{row.username}</span>
                 <span className="font-display text-lg shrink-0" style={{ color: isMe ? '#1B4FD8' : '#6B7280' }}>{row.total_points}</span>
               </div>
               {matches.map(match => {

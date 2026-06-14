@@ -23,7 +23,9 @@ export function AvatarDisplay({ avatarUrl, username, size = 36, rank = null, sty
       background: '#1B4FD8',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: 'white', fontWeight: 900,
-      fontSize: emoji ? Math.round(size * 0.52) : Math.round(size * 0.4),
+      fontSize: emoji ? Math.round(size * 0.48) : Math.round(size * 0.4),
+      lineHeight: 1,
+      overflow: 'hidden',
       ...radius, ...ring, ...style,
     }}>
       {emoji ?? (username?.[0]?.toUpperCase() ?? '?')}
