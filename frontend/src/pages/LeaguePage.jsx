@@ -737,9 +737,7 @@ function MembersTab({ ligaId, adminId }) {
 // ── Goleadores Picks Grid ─────────────────────────────────────────────────────
 function PlayerFace({ player, size = 42 }) {
   const [err, setErr] = useState(false)
-  const src = player?.sofascore_id
-    ? `https://api.sofascore.com/api/v1/player/${player.sofascore_id}/image`
-    : null
+  const src = player?.foto_url || null
 
   const initials = player?.nombre
     ? player.nombre.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -757,7 +755,6 @@ function PlayerFace({ player, size = 42 }) {
       src={src}
       alt={player?.nombre}
       onError={() => setErr(true)}
-      referrerPolicy="no-referrer"
       style={{ width: size, height: size, borderRadius: size / 2, objectFit: 'cover', objectPosition: 'top' }}
     />
   )
