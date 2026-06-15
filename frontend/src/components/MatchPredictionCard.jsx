@@ -100,7 +100,10 @@ function GoalTimeline({ goals, match }) {
   const awayLabel = match.away_team?.name
 
   const isHomeGoal = g => {
-    if (!g.team || !homeLabel) return true
+    if (!g.team) return true
+    if (match.home_team?.id && g.team === match.home_team.id) return true
+    if (match.away_team?.id && g.team === match.away_team.id) return false
+    if (!homeLabel) return true
     const nt = normStr(g.team), nh = normStr(homeLabel)
     return nt.includes(nh.slice(0, 5)) || nh.includes(nt.slice(0, 5))
   }
