@@ -119,7 +119,7 @@ export default function Predictions() {
   const [matches, setMatches]             = useState([])
   const [predictions, setPredictions]     = useState({})
   const [loading, setLoading]             = useState(true)
-  const [selectedGroup, setSelectedGroup] = useState('hoy')
+  const [selectedGroup, setSelectedGroup] = useState('all')
 
   useEffect(() => {
     async function load() {

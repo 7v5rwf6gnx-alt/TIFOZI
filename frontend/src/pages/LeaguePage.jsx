@@ -921,7 +921,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const [matches, setMatches]             = useState([])
   const [myPredictions, setMyPredictions] = useState({})
   const [loading, setLoading]             = useState(true)
-  const [filter, setFilter]               = useState('hoy')
+  const [filter, setFilter]               = useState('all')
   const [picksMatch, setPicksMatch]       = useState(null)
   useEffect(() => {
     if (!userId) return
