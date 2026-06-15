@@ -640,17 +640,16 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
   }
 
   if (collapsed && locked) {
-    const hi = url => url?.replace(/\/w\d+\//, '/w60/') ?? ''
     return (
       <div className="overflow-hidden rounded-2xl" style={cardStyle}>
         <div className="flex items-center px-4 py-2">
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <img src={hi(match.home_team?.flag_url)} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />
+            <Flag src={match.home_team?.flag_url} size={22} />
             <span className="text-gray-400 text-xs font-bold">{match.home_team?.code}</span>
             <span className="font-display text-base text-white px-1">{match.home_score ?? '?'}–{match.away_score ?? '?'}</span>
             <span className="text-gray-400 text-xs font-bold">{match.away_team?.code}</span>
-            <img src={hi(match.away_team?.flag_url)} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />
+            <Flag src={match.away_team?.flag_url} size={22} />
           </div>
           <div className="flex-1 flex items-center justify-end gap-2">
             {pointsLabel && (
