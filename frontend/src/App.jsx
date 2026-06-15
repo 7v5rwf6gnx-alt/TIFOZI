@@ -7,6 +7,7 @@ import BottomNav from './components/BottomNav'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import OnboardingModal from './components/OnboardingModal'
+import WhatsNewModal from './components/WhatsNewModal'
 import Home from './pages/Home'
 import Auth from './pages/Auth'
 import Groups from './pages/Groups'
@@ -99,6 +100,7 @@ function OnboardingGate({ children }) {
     <>
       {children}
       {needsOnboarding && <OnboardingModal onComplete={handleComplete} />}
+      <WhatsNewModal />
     </>
   )
 }
