@@ -6,9 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { MatchPredictionCard, GROUP_COLORS, isLocked } from '../components/MatchPredictionCard'
 import { Flag } from '../components/FlagPair'
 import { AvatarDisplay } from '../components/AvatarDisplay'
-import LeagueChat from '../components/LeagueChat'
-
-const TABS = ['Ranking', 'Goleadores', 'Partidos', 'Chat', 'Miembros']
+const TABS       = ['Ranking', 'Goleadores', 'Partidos', 'Miembros']
+const TAB_LABELS = { Goleadores: 'Goles' }
 
 const WC_MATCH_SELECT = `
   id, match_number, stage, match_date, match_time, home_score, away_score, status, competition,
@@ -1572,7 +1571,8 @@ export default function LeaguePage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.15 }}
-        className="relative flex bg-[#1A1A1A] rounded-2xl p-1 mb-6 border border-white/10"
+        className="relative flex bg-[#1A1A1A] rounded-2xl p-1 mb-6 border border-white/10 overflow-x-auto"
+        style={{ scrollbarWidth: 'none' }}
       >
         {TABS.map((t, i) => (
           <motion.button
@@ -1581,7 +1581,7 @@ export default function LeaguePage() {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + i * 0.05 }}
-            className="relative flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors z-10 flex items-center justify-center gap-1.5"
+            className="relative flex-1 min-w-0 py-2.5 px-2 rounded-xl text-xs font-bold transition-colors z-10 flex items-center justify-center gap-1 whitespace-nowrap"
             style={{ color: tab === t ? 'white' : 'rgba(255,255,255,0.4)' }}
           >
             {tab === t && (
@@ -1592,9 +1592,9 @@ export default function LeaguePage() {
                 transition={{ type: 'spring', bounce: 0.18, duration: 0.4 }}
               />
             )}
-            <span className="relative z-10">{t}</span>
+            <span className="relative z-10">{TAB_LABELS[t] ?? t}</span>
             {tabCounts[t] && (
-              <span className="relative z-10 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+              <span className="relative z-10 text-[10px] font-bold px-1 py-0.5 rounded-full leading-none"
                     style={{
                       backgroundColor: tab === t ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
                       color: tab === t ? 'white' : 'rgba(255,255,255,0.4)',
@@ -1615,11 +1615,10 @@ export default function LeaguePage() {
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.18 }}
         >
-          {tab === 'Ranking'    && <RankingTab      ligaId={id} userId={user?.id} torneo={liga.torneo} />}
-          {tab === 'Goleadores' && <GoleadoresTab   ligaId={id} userId={user?.id} />}
-          {tab === 'Partidos'   && <MatchesTab       ligaId={id} userId={user?.id} torneo={liga.torneo} />}
-          {tab === 'Chat'       && <LeagueChat       ligaId={id} />}
-          {tab === 'Miembros'   && <MembersTab       ligaId={id} adminId={liga.admin_id} />}
+          {tab === 'Ranking'    && <RankingTab    ligaId={id} userId={user?.id} torneo={liga.torneo} />}
+          {tab === 'Goleadores' && <GoleadoresTab ligaId={id} userId={user?.id} />}
+          {tab === 'Partidos'   && <MatchesTab    ligaId={id} userId={user?.id} torneo={liga.torneo} />}
+          {tab === 'Miembros'   && <MembersTab    ligaId={id} adminId={liga.admin_id} />}
         </motion.div>
       </AnimatePresence>
     </div>
