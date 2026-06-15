@@ -506,10 +506,28 @@ function useKickoffCd(match) {
 }
 
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave, onDelete, onViewPicks, onDismiss }) {
+export function MatchPredictionCard({ match, prediction, onSave, onDelete, onViewPicks }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem('collapsed_matches') || '[]')
+      return arr.includes(match.id)
+    } catch { return false }
+  })
+  const toggleCollapse = (e) => {
+    e.stopPropagation()
+    setCollapsed(prev => {
+      const next = !prev
+      try {
+        const arr = JSON.parse(localStorage.getItem('collapsed_matches') || '[]')
+        const updated = next ? [...new Set([...arr, match.id])] : arr.filter(id => id !== match.id)
+        localStorage.setItem('collapsed_matches', JSON.stringify(updated))
+      } catch {}
+      return next
+    })
+  }
   const [homeScore, setHomeScore]       = useState(prediction?.home_score ?? '')
   const [awayScore, setAwayScore]       = useState(prediction?.away_score ?? '')
   const [goalscorerId, setGoalscorerId] = useState(() => {
@@ -614,18 +632,44 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
     ? `${LIVE_STATUS_LABEL[liveData.status] || 'EN VIVO'}${liveMinute ? ` ${liveMinute}'` : ''}`
     : 'EN VIVO'
 
+  const cardStyle = {
+    background:  'linear-gradient(160deg, #1E1E1E 0%, #181818 100%)',
+    border:      '1px solid rgba(255,255,255,0.08)',
+    borderLeft:  `4px solid ${finished ? '#00A550' : groupColor}`,
+    boxShadow:   `0 2px 12px rgba(0,0,0,0.5), inset 3px 0 20px ${groupColor}18`,
+  }
+
+  if (collapsed && locked) {
+    const hi = url => url?.replace(/\/w\d+\//, '/w60/') ?? ''
+    return (
+      <div className="overflow-hidden rounded-2xl" style={cardStyle}>
+        <div className="flex items-center gap-2 px-4 py-2">
+          <img src={hi(match.home_team?.flag_url)} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+          <span className="text-gray-400 text-xs font-bold">{match.home_team?.code}</span>
+          <span className="font-display text-base text-white px-1">
+            {match.home_score ?? '?'}–{match.away_score ?? '?'}
+          </span>
+          <span className="text-gray-400 text-xs font-bold">{match.away_team?.code}</span>
+          <img src={hi(match.away_team?.flag_url)} style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+          <div className="flex-1" />
+          {pointsLabel && (
+            <span className={`text-xs font-bold border px-2 py-0.5 rounded-full ${ptColor}`}>{pointsLabel}</span>
+          )}
+          <button onClick={toggleCollapse}
+            className="text-gray-600 hover:text-gray-400 active:scale-90 transition-all leading-none ml-1"
+            style={{ fontSize: 18 }}>﹢</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       onClick={locked && !finished ? triggerShake : undefined}
       className={`overflow-hidden rounded-2xl transition-all duration-200 ${
         !locked ? 'hover:shadow-[0_8px_40px_rgba(0,0,0,0.7)] hover:-translate-y-0.5' : ''
       } ${locked && !finished ? 'cursor-not-allowed opacity-80' : ''} ${shake ? 'animate-shake' : ''}`}
-      style={{
-        background:   'linear-gradient(160deg, #1E1E1E 0%, #181818 100%)',
-        border:       '1px solid rgba(255,255,255,0.08)',
-        borderLeft:   `4px solid ${finished ? '#00A550' : groupColor}`,
-        boxShadow:    `0 2px 12px rgba(0,0,0,0.5), inset 3px 0 20px ${groupColor}18`,
-      }}
+      style={cardStyle}
     >
       {/* Closing-soon warning */}
       {closingSoon && countdown && (
@@ -673,12 +717,13 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
               {cdLabel}
             </span>
           )}
-          {onDismiss && locked && (
+          {locked && (
             <button
-              onClick={e => { e.stopPropagation(); onDismiss(match.id) }}
-              className="text-gray-600 hover:text-gray-400 active:scale-90 transition-all text-base leading-none ml-1"
-              title="Ocultar partido">
-              ×
+              onClick={toggleCollapse}
+              className="text-gray-600 hover:text-gray-400 active:scale-90 transition-all leading-none ml-1"
+              style={{ fontSize: 18 }}
+              title={collapsed ? 'Expandir' : 'Minimizar'}>
+              {collapsed ? '﹢' : '−'}
             </button>
           )}
         </div>

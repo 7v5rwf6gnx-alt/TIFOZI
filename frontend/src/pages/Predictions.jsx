@@ -120,10 +120,6 @@ export default function Predictions() {
   const [predictions, setPredictions]     = useState({})
   const [loading, setLoading]             = useState(true)
   const [selectedGroup, setSelectedGroup] = useState('hoy')
-  const [dismissed, setDismissed]         = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('dismissed_matches') || '[]')) }
-    catch { return new Set() }
-  })
 
   useEffect(() => {
     async function load() {
@@ -173,19 +169,9 @@ export default function Predictions() {
     setPredictions(prev => { const next = { ...prev }; delete next[matchId]; return next })
   }, [user.id])
 
-  const handleDismiss = useCallback((matchId) => {
-    setDismissed(prev => {
-      const next = new Set(prev)
-      next.add(matchId)
-      localStorage.setItem('dismissed_matches', JSON.stringify([...next]))
-      return next
-    })
-  }, [])
-
   const todayStr   = new Date().toISOString().slice(0, 10)
   const groupNames = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
-  const visible    = matches.filter(m => !dismissed.has(m.id))
-  const filtered   = visible.filter(m => {
+  const filtered   = matches.filter(m => {
     if (selectedGroup === 'hoy') return m.match_date?.slice(0, 10) === todayStr
     if (selectedGroup === 'all') return true
     return m.group?.name === selectedGroup
@@ -231,14 +217,6 @@ export default function Predictions() {
                 {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : `Grupo ${g}`}
               </button>
             ))}
-            {dismissed.size > 0 && (
-              <button onClick={() => {
-                setDismissed(new Set())
-                localStorage.removeItem('dismissed_matches')
-              }} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 text-gray-600 border border-white/10 hover:text-gray-400 transition-all">
-                Ver {dismissed.size} oculto{dismissed.size !== 1 ? 's' : ''}
-              </button>
-            )}
           </div>
 
           {loading ? (
@@ -300,7 +278,6 @@ export default function Predictions() {
                           prediction={predictions[match.id]}
                           onSave={handleSave}
                           onDelete={handleDelete}
-                          onDismiss={handleDismiss}
                         />
                       </motion.div>
                     ))}

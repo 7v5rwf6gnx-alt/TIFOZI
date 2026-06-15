@@ -923,10 +923,6 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const [loading, setLoading]             = useState(true)
   const [filter, setFilter]               = useState('hoy')
   const [picksMatch, setPicksMatch]       = useState(null)
-  const [dismissed, setDismissed]         = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('dismissed_matches') || '[]')) }
-    catch { return new Set() }
-  })
   useEffect(() => {
     if (!userId) return
     async function load() {
@@ -960,19 +956,9 @@ function MatchesTab({ ligaId, userId, torneo }) {
     return null
   }, [userId])
 
-  const handleDismiss = useCallback((matchId) => {
-    setDismissed(prev => {
-      const next = new Set(prev)
-      next.add(matchId)
-      localStorage.setItem('dismissed_matches', JSON.stringify([...next]))
-      return next
-    })
-  }, [])
-
   const todayStr = new Date().toISOString().slice(0, 10)
   const groups   = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
-  const visible  = matches.filter(m => !dismissed.has(m.id))
-  const filtered = visible.filter(m => {
+  const filtered = matches.filter(m => {
     if (filter === 'hoy') return m.match_date?.slice(0, 10) === todayStr
     if (filter === 'all') return true
     return m.group?.name === filter
@@ -994,14 +980,6 @@ function MatchesTab({ ligaId, userId, torneo }) {
             {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : `Grupo ${g}`}
           </button>
         ))}
-        {dismissed.size > 0 && (
-          <button onClick={() => {
-            setDismissed(new Set())
-            localStorage.removeItem('dismissed_matches')
-          }} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 text-gray-600 border border-white/10 hover:text-gray-400 transition-all">
-            Ver {dismissed.size} oculto{dismissed.size !== 1 ? 's' : ''}
-          </button>
-        )}
       </div>
 
       {/* Match cards */}
@@ -1013,7 +991,6 @@ function MatchesTab({ ligaId, userId, torneo }) {
             prediction={myPredictions[match.id]}
             onSave={handleSave}
             onViewPicks={(m) => setPicksMatch(m)}
-            onDismiss={handleDismiss}
           />
         ))}
         {filtered.length === 0 && (
