@@ -1389,7 +1389,7 @@ export default function LeaguePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [liga, setLiga]             = useState(null)
-  const [tab, setTab]               = useState('Ranking')
+  const [tab, setTab]               = useState('Partidos')
   const [loading, setLoading]       = useState(true)
   const [copied, setCopied]         = useState(false)
   const [memberCount, setMemberCount] = useState(0)
