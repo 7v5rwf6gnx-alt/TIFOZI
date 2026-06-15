@@ -55,7 +55,139 @@ function SkeletonRanking() {
 }
 
 // ── Picks Grid ────────────────────────────────────────────────────────────────
+function MatchDetailModal({ match, rankingRows, predMap, playerMap, currentUserId, onClose }) {
+  const hi = url => url?.replace(/\/w\d+\//, '/w80/') ?? ''
+  const locked = isLocked(match)
+  const finished = match.status === 'finished'
+
+  const rows = useMemo(() => {
+    return rankingRows.map(row => {
+      const pred = predMap[row.user_id]?.[match.id]
+      const isMe = row.user_id === currentUserId
+      const visible = locked || isMe
+      if (!visible) return { ...row, visible: false }
+      if (!pred || pred.home_score == null) return { ...row, visible: true, noPick: true }
+      const scorer = pred.primer_goleador_prediccion_id ? playerMap[pred.primer_goleador_prediccion_id] : null
+      return { ...row, visible: true, hs: pred.home_score, as: pred.away_score, scorer, pts: pred.points_earned ?? null, bonusGol: pred.bonus_goleador ?? 0 }
+    }).filter(r => r.visible)
+  }, [rankingRows, predMap, playerMap, match, currentUserId, locked])
+
+  // Summary stats
+  const picks = rows.filter(r => !r.noPick)
+  const homeWins = picks.filter(r => r.hs > r.as).length
+  const draws    = picks.filter(r => r.hs === r.as).length
+  const awayWins = picks.filter(r => r.hs < r.as).length
+  const total    = picks.length || 1
+  const scoreCounts = picks.reduce((acc, r) => {
+    const k = `${r.hs}-${r.as}`
+    acc[k] = (acc[k] || 0) + 1
+    return acc
+  }, {})
+  const topScore = Object.entries(scoreCounts).sort((a, b) => b[1] - a[1])[0]
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+        style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+          className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden"
+          style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-3">
+              <img src={hi(match.home_team?.flag_url)} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+              <div className="text-center">
+                {finished
+                  ? <span className="font-display text-2xl text-white">{match.home_score} - {match.away_score}</span>
+                  : <span className="text-white text-sm font-bold">vs</span>}
+              </div>
+              <img src={hi(match.away_team?.flag_url)} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+            </div>
+            <div className="text-right">
+              <p className="text-white text-xs font-bold">{match.home_team?.name} vs {match.away_team?.name}</p>
+              {topScore && <p className="text-gray-500 text-[11px] mt-0.5">Pick más popular: <span className="text-white font-bold">{topScore[0]}</span> ({topScore[1]})</p>}
+            </div>
+            <button onClick={onClose} className="text-gray-500 hover:text-white ml-3 shrink-0">✕</button>
+          </div>
+
+          {/* Stats bar */}
+          {locked && picks.length > 0 && (
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex rounded-lg overflow-hidden h-2 gap-px">
+                {homeWins > 0 && <div style={{ flex: homeWins, background: '#1B4FD8' }} />}
+                {draws > 0    && <div style={{ flex: draws,    background: '#6B7280' }} />}
+                {awayWins > 0 && <div style={{ flex: awayWins, background: '#E8122D' }} />}
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[11px] text-blue-400">{Math.round(homeWins/total*100)}% local</span>
+                <span className="text-[11px] text-gray-400">{Math.round(draws/total*100)}% empate</span>
+                <span className="text-[11px] text-red-400">{Math.round(awayWins/total*100)}% visitante</span>
+              </div>
+            </div>
+          )}
+
+          {/* Picks list */}
+          <div className="overflow-y-auto flex-1 py-2">
+            {!locked ? (
+              <p className="text-center text-gray-500 text-sm py-8">Los picks se revelan al cerrar el partido</p>
+            ) : rows.length === 0 ? (
+              <p className="text-center text-gray-500 text-sm py-8">Nadie hizo pick aún</p>
+            ) : rows.map((row, i) => {
+              const isMe = row.user_id === currentUserId
+              const rank = rankingRows.findIndex(r => r.user_id === row.user_id) + 1
+              return (
+                <div key={row.user_id}
+                  className="flex items-center gap-3 px-5 py-2.5"
+                  style={{ background: isMe ? 'rgba(27,79,216,0.08)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}
+                >
+                  <span className="text-gray-600 text-xs w-5 text-center shrink-0">{rank}</span>
+                  <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={28} />
+                  <span className={`text-xs font-semibold truncate min-w-0 flex-1 ${isMe ? 'text-blue-400' : 'text-white'}`}>{row.username}</span>
+                  {row.noPick ? (
+                    <span className="text-gray-600 text-xs">—</span>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Score pick */}
+                      <span className={`font-display text-base px-2 py-0.5 rounded-lg ${
+                        !finished ? 'text-white bg-white/8' :
+                        row.pts === 3 ? 'text-green-400 bg-green-900/40' :
+                        row.pts >= 1 ? 'text-yellow-400 bg-yellow-900/40' :
+                        'text-red-400 bg-red-900/40'
+                      }`}>{row.hs}-{row.as}</span>
+                      {/* Goleador */}
+                      {row.scorer && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md truncate max-w-[70px] ${row.bonusGol > 0 ? 'text-green-400 bg-green-900/30' : 'text-gray-500 bg-white/5'}`}>
+                          {row.scorer.nombre.split(' ')[0]}
+                        </span>
+                      )}
+                      {/* Points */}
+                      {finished && row.pts != null && (
+                        <span className="text-[11px] font-bold text-gray-400 w-8 text-right shrink-0">
+                          {row.pts + row.bonusGol}pt
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserId }) {
+  const [selectedMatch, setSelectedMatch] = useState(null)
 
   // Current user always first
   const orderedRows = useMemo(() => {
@@ -99,18 +231,32 @@ function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserI
   if (orderedRows.length === 0) return null
 
   return (
+    <>
+    {selectedMatch && (
+      <MatchDetailModal
+        match={selectedMatch}
+        rankingRows={rankingRows}
+        predMap={predMap}
+        playerMap={playerMap}
+        currentUserId={currentUserId}
+        onClose={() => setSelectedMatch(null)}
+      />
+    )}
     <div className="overflow-x-auto -mx-4">
       <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
-        {/* Match header */}
+        {/* Match header — click to see all picks */}
         <div className="flex items-end mb-2">
           <div style={{ minWidth: 172, flexShrink: 0 }} />
           {matches.map(m => (
             <div key={m.id} style={{ width: 50, flexShrink: 0 }}
-                 className="flex flex-col items-center gap-0.5 px-1">
+                 className="flex flex-col items-center gap-0.5 px-1 cursor-pointer group"
+                 onClick={() => setSelectedMatch(m)}>
               <img src={hi(m.home_team?.flag_url)} alt=""
-                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }}
+                   className="group-hover:opacity-100 transition-opacity" />
               <img src={hi(m.away_team?.flag_url)} alt=""
-                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }} />
+                   style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 3, opacity: 0.7 }}
+                   className="group-hover:opacity-100 transition-opacity" />
             </div>
           ))}
         </div>
@@ -194,6 +340,7 @@ function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserI
         </div>
       </div>
     </div>
+    </>
   )
 }
 
