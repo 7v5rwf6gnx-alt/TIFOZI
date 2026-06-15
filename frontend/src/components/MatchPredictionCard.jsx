@@ -812,7 +812,12 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
       {!locked && (
         <div className="px-5 pb-4 flex flex-col items-center gap-2 relative">
           {saveError && (
-            <p className="text-red-400 text-xs font-semibold text-center">{saveError}</p>
+            saveError.includes('row-level security') || saveError.includes('violates') || saveError.includes('JWT') || saveError.includes('auth')
+              ? <div className="text-center">
+                  <p className="text-amber-400 text-xs font-semibold mb-1">Sesión expirada</p>
+                  <a href="/auth" className="text-xs text-blue-400 underline">Volvé a iniciar sesión</a>
+                </div>
+              : <p className="text-red-400 text-xs font-semibold text-center">{saveError}</p>
           )}
           <div className="flex items-center justify-center gap-3 w-full relative">
           <AnimatePresence>
