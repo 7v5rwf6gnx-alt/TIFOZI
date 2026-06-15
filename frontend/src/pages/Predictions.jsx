@@ -119,7 +119,11 @@ export default function Predictions() {
   const [matches, setMatches]             = useState([])
   const [predictions, setPredictions]     = useState({})
   const [loading, setLoading]             = useState(true)
-  const [selectedGroup, setSelectedGroup] = useState('all')
+  const [selectedGroup, setSelectedGroup] = useState('hoy')
+  const [dismissed, setDismissed]         = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('dismissed_matches') || '[]')) }
+    catch { return new Set() }
+  })
 
   useEffect(() => {
     async function load() {
@@ -169,8 +173,23 @@ export default function Predictions() {
     setPredictions(prev => { const next = { ...prev }; delete next[matchId]; return next })
   }, [user.id])
 
-  const groupNames = [...new Set(matches.map(m => m.group?.name))].sort()
-  const filtered   = selectedGroup === 'all' ? matches : matches.filter(m => m.group?.name === selectedGroup)
+  const handleDismiss = useCallback((matchId) => {
+    setDismissed(prev => {
+      const next = new Set(prev)
+      next.add(matchId)
+      localStorage.setItem('dismissed_matches', JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
+  const todayStr   = new Date().toISOString().slice(0, 10)
+  const groupNames = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
+  const visible    = matches.filter(m => !dismissed.has(m.id))
+  const filtered   = visible.filter(m => {
+    if (selectedGroup === 'hoy') return m.match_date?.slice(0, 10) === todayStr
+    if (selectedGroup === 'all') return true
+    return m.group?.name === selectedGroup
+  })
   const byDate     = filtered.reduce((acc, m) => {
     const d = m.match_date?.slice(0, 10)
     if (!acc[d]) acc[d] = []
@@ -201,17 +220,25 @@ export default function Predictions() {
           <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
-            {['all', ...groupNames].map(g => (
+            {['hoy', 'all', ...groupNames].map(g => (
               <button key={g} onClick={() => setSelectedGroup(g)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedGroup === g
                     ? 'text-white shadow-sm'
                     : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
                 }`}
-                style={selectedGroup === g ? { backgroundColor: GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
-                {g === 'all' ? 'Todos' : `Grupo ${g}`}
+                style={selectedGroup === g ? { backgroundColor: g === 'hoy' ? '#059669' : GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
+                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : `Grupo ${g}`}
               </button>
             ))}
+            {dismissed.size > 0 && (
+              <button onClick={() => {
+                setDismissed(new Set())
+                localStorage.removeItem('dismissed_matches')
+              }} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 text-gray-600 border border-white/10 hover:text-gray-400 transition-all">
+                Ver {dismissed.size} oculto{dismissed.size !== 1 ? 's' : ''}
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -245,6 +272,13 @@ export default function Predictions() {
                 </motion.div>
               ))}
             </div>
+          ) : Object.keys(byDate).length === 0 ? (
+            <div className="text-center py-16 text-gray-600">
+              {selectedGroup === 'hoy'
+                ? <><p className="text-3xl mb-3">📅</p><p className="font-bold text-gray-400 mb-1">Sin partidos hoy</p><p className="text-sm">Usá "Todos" para ver todos los partidos</p></>
+                : <p className="text-sm">Sin partidos para este filtro</p>
+              }
+            </div>
           ) : (
             <div className="space-y-8">
               {Object.entries(byDate).map(([date, dayMatches], dateIdx) => (
@@ -266,6 +300,7 @@ export default function Predictions() {
                           prediction={predictions[match.id]}
                           onSave={handleSave}
                           onDelete={handleDelete}
+                          onDismiss={handleDismiss}
                         />
                       </motion.div>
                     ))}

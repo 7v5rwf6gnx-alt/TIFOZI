@@ -921,8 +921,12 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const [matches, setMatches]             = useState([])
   const [myPredictions, setMyPredictions] = useState({})
   const [loading, setLoading]             = useState(true)
-  const [filter, setFilter]               = useState('all')
+  const [filter, setFilter]               = useState('hoy')
   const [picksMatch, setPicksMatch]       = useState(null)
+  const [dismissed, setDismissed]         = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('dismissed_matches') || '[]')) }
+    catch { return new Set() }
+  })
   useEffect(() => {
     if (!userId) return
     async function load() {
@@ -956,8 +960,23 @@ function MatchesTab({ ligaId, userId, torneo }) {
     return null
   }, [userId])
 
-  const groups = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
-  const filtered = filter !== 'all' ? matches.filter(m => m.group?.name === filter) : matches
+  const handleDismiss = useCallback((matchId) => {
+    setDismissed(prev => {
+      const next = new Set(prev)
+      next.add(matchId)
+      localStorage.setItem('dismissed_matches', JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const groups   = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
+  const visible  = matches.filter(m => !dismissed.has(m.id))
+  const filtered = visible.filter(m => {
+    if (filter === 'hoy') return m.match_date?.slice(0, 10) === todayStr
+    if (filter === 'all') return true
+    return m.group?.name === filter
+  })
 
   if (loading) return <SkeletonRanking />
 
@@ -965,19 +984,25 @@ function MatchesTab({ ligaId, userId, torneo }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="animate-slide-up">
 
       {/* Group filter */}
-      {groups.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {['all', ...groups].map(g => (
-            <button key={g} onClick={() => setFilter(g)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                filter === g ? 'text-white' : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
-              }`}
-              style={filter === g ? { backgroundColor: GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
-              {g === 'all' ? 'Todos' : `Grupo ${g}`}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {['hoy', 'all', ...groups].map(g => (
+          <button key={g} onClick={() => setFilter(g)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              filter === g ? 'text-white' : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
+            }`}
+            style={filter === g ? { backgroundColor: g === 'hoy' ? '#059669' : GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
+            {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : `Grupo ${g}`}
+          </button>
+        ))}
+        {dismissed.size > 0 && (
+          <button onClick={() => {
+            setDismissed(new Set())
+            localStorage.removeItem('dismissed_matches')
+          }} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 text-gray-600 border border-white/10 hover:text-gray-400 transition-all">
+            Ver {dismissed.size} oculto{dismissed.size !== 1 ? 's' : ''}
+          </button>
+        )}
+      </div>
 
       {/* Match cards */}
       <div className="space-y-4">
@@ -988,10 +1013,16 @@ function MatchesTab({ ligaId, userId, torneo }) {
             prediction={myPredictions[match.id]}
             onSave={handleSave}
             onViewPicks={(m) => setPicksMatch(m)}
+            onDismiss={handleDismiss}
           />
         ))}
         {filtered.length === 0 && (
-          <p className="text-center text-gray-600 py-10 text-sm">Sin partidos.</p>
+          <div className="text-center py-16 text-gray-600">
+            {filter === 'hoy'
+              ? <><p className="text-3xl mb-3">📅</p><p className="font-bold text-gray-400 mb-1">Sin partidos hoy</p><p className="text-sm">Usá "Todos" para ver todos los partidos</p></>
+              : <p className="text-sm">Sin partidos para este filtro.</p>
+            }
+          </div>
         )}
       </div>
 

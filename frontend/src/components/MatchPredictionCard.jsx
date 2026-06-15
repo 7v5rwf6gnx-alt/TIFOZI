@@ -506,7 +506,7 @@ function useKickoffCd(match) {
 }
 
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave, onDelete, onViewPicks }) {
+export function MatchPredictionCard({ match, prediction, onSave, onDelete, onViewPicks, onDismiss }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
@@ -672,6 +672,14 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
                   style={{ color: cdColor, backgroundColor: cdBg, borderColor: cdBorder }}>
               {cdLabel}
             </span>
+          )}
+          {onDismiss && locked && (
+            <button
+              onClick={e => { e.stopPropagation(); onDismiss(match.id) }}
+              className="text-gray-600 hover:text-gray-400 active:scale-90 transition-all text-base leading-none ml-1"
+              title="Ocultar partido">
+              ×
+            </button>
           )}
         </div>
       </div>
