@@ -805,7 +805,11 @@ function LigaPicksModal({ match, ligaId, userId, onClose }) {
         const prof = profileMap[id] || {}
         const pred = predMap[id]
         return { userId: id, username: prof.username, avatarUrl: prof.avatar_url, pred, scorerName: pred?.primer_goleador_prediccion_id ? scorerMap[pred.primer_goleador_prediccion_id] : null }
-      }).sort((a, b) => (b.pred?.points_earned ?? -1) - (a.pred?.points_earned ?? -1))
+      }).sort((a, b) => {
+        const totalA = (a.pred?.points_earned ?? -1) + (a.pred?.bonus_goleador ?? 0)
+        const totalB = (b.pred?.points_earned ?? -1) + (b.pred?.bonus_goleador ?? 0)
+        return totalB - totalA
+      })
 
       setRows(result)
       setLoading(false)
