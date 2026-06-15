@@ -506,7 +506,7 @@ function useKickoffCd(match) {
 }
 
 // ── Main Card ─────────────────────────────────────────────────────────────────
-export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
+export function MatchPredictionCard({ match, prediction, onSave, onDelete, onViewPicks }) {
   const locked      = isLocked(match)
   const closingSoon = !locked && minsToLock(match) <= 30
   const finished    = match.status === 'finished'
@@ -799,7 +799,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
         </div>
       )}
 
-      {/* Goalscorer + H2H (pre-match) + Lineups (post-kickoff) */}
+      {/* Goalscorer + picks button */}
       <div className="px-5 pb-5">
         <GoalscorerSelector
           match={match}
@@ -807,7 +807,16 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete }) {
           onSelect={handleGoalscorerSelect}
           disabled={locked}
         />
-        <LineupSection match={match} />
+        {onViewPicks && (
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <button
+              onClick={() => onViewPicks(match)}
+              className="w-full flex items-center justify-between py-1 text-xs text-gray-400 hover:text-white transition-colors group">
+              <span className="font-bold uppercase tracking-wide">Picks del grupo</span>
+              <span className="text-[10px] text-gray-600 group-hover:text-gray-300">Ver →</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
