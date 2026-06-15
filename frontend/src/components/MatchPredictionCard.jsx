@@ -810,10 +810,11 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
         {onViewPicks && (
           <div className="mt-3 pt-3 border-t border-white/10">
             <button
-              onClick={() => onViewPicks(match)}
-              className="w-full flex items-center justify-between py-1 text-xs text-gray-400 hover:text-white transition-colors group">
-              <span className="font-bold uppercase tracking-wide">Picks del grupo</span>
-              <span className="text-[10px] text-gray-600 group-hover:text-gray-300">Ver →</span>
+              onClick={e => { e.stopPropagation(); onViewPicks(match) }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-white active:scale-95 transition-transform"
+              style={{ background: 'rgba(27,79,216,0.18)', border: '1px solid rgba(27,79,216,0.35)' }}>
+              <span>👥 Picks del grupo</span>
+              <span className="text-xs text-blue-400">Ver →</span>
             </button>
           </div>
         )}
