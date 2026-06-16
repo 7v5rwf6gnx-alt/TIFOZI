@@ -39,8 +39,14 @@ export default function Auth() {
 
     if (tab === 'login') {
       const { error: err } = await signIn(email, password)
-      if (err) setError(err.message)
-      else navigate(returnTo)
+      if (err) {
+        if (err.message?.toLowerCase().includes('fetch') || err.message?.toLowerCase().includes('network'))
+          setError('Sin conexión. Revisá tu internet o desactivá VPN/firewall e intentá de nuevo.')
+        else if (err.message?.toLowerCase().includes('invalid') || err.message?.toLowerCase().includes('credentials'))
+          setError('Email o contraseña incorrectos.')
+        else
+          setError(err.message)
+      } else navigate(returnTo)
     } else {
       const { error: err } = await signUp(email, password, username.trim(), fullName.trim(), phone.trim() || null)
       if (err) setError(err.message)
