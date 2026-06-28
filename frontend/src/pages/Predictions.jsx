@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { MatchPredictionCard, GROUP_COLORS } from '../components/MatchPredictionCard'
 import { AvatarDisplay } from '../components/AvatarDisplay'
+import LigaPicksModal from '../components/LigaPicksModal'
 
 // ── Mini ranking widget ───────────────────────────────────────────────────────
 function MiniRanking({ userId }) {
@@ -120,10 +121,14 @@ export default function Predictions() {
   const [predictions, setPredictions]     = useState({})
   const [loading, setLoading]             = useState(true)
   const [selectedGroup, setSelectedGroup] = useState('all')
+  const [userLeagues, setUserLeagues]     = useState([])
+  const [picksMatch, setPicksMatch]       = useState(null)
+  const [picksLigaId, setPicksLigaId]    = useState(null)
+  const [leaguePicker, setLeaguePicker]  = useState(null) // match awaiting liga selection
 
   useEffect(() => {
     async function load() {
-      const [{ data: matchData }, { data: predData }] = await Promise.all([
+      const [{ data: matchData }, { data: predData }, { data: memberships }] = await Promise.all([
         supabase
           .from('matches')
           .select(`
@@ -133,21 +138,36 @@ export default function Predictions() {
             away_team:away_team_id(id, name, code, flag_url),
             group:group_id(name)
           `)
-          .eq('stage', 'group')
+          .in('stage', ['group', 'round_of_32'])
           .order('match_number'),
         supabase
           .from('predictions')
           .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
           .eq('user_id', user.id),
+        supabase
+          .from('liga_miembros')
+          .select('liga_id, ligas(id, nombre)')
+          .eq('usuario_id', user.id),
       ])
       setMatches(matchData || [])
       const predMap = {}
       for (const p of predData || []) predMap[p.match_id] = p
       setPredictions(predMap)
+      setUserLeagues((memberships || []).map(m => m.ligas).filter(Boolean))
       setLoading(false)
     }
     load()
   }, [user.id])
+
+  function handleViewPicks(match) {
+    if (userLeagues.length === 0) return
+    if (userLeagues.length === 1) {
+      setPicksMatch(match)
+      setPicksLigaId(userLeagues[0].id)
+    } else {
+      setLeaguePicker(match)
+    }
+  }
 
   const handleSave = useCallback(async (matchId, homeScore, awayScore, goalscorerId) => {
     const { data, error } = await supabase
@@ -170,10 +190,12 @@ export default function Predictions() {
   }, [user.id])
 
   const todayStr   = new Date().toISOString().slice(0, 10)
-  const groupNames = [...new Set(matches.map(m => m.group?.name).filter(Boolean))].sort()
+  const groupNames = [...new Set(matches.filter(m => m.stage === 'group').map(m => m.group?.name).filter(Boolean))].sort()
+  const hasR32     = matches.some(m => m.stage === 'round_of_32')
   const filtered   = matches.filter(m => {
-    if (selectedGroup === 'hoy') return m.match_date?.slice(0, 10) === todayStr
-    if (selectedGroup === 'all') return true
+    if (selectedGroup === 'hoy')   return m.match_date?.slice(0, 10) === todayStr
+    if (selectedGroup === 'all')   return true
+    if (selectedGroup === '16avos') return m.stage === 'round_of_32'
     return m.group?.name === selectedGroup
   })
   const byDate     = filtered.reduce((acc, m) => {
@@ -206,15 +228,15 @@ export default function Predictions() {
           <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
-            {['hoy', 'all', ...groupNames].map(g => (
+            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...groupNames].map(g => (
               <button key={g} onClick={() => setSelectedGroup(g)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedGroup === g
                     ? 'text-white shadow-sm'
                     : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
                 }`}
-                style={selectedGroup === g ? { backgroundColor: g === 'hoy' ? '#059669' : GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
-                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : `Grupo ${g}`}
+                style={selectedGroup === g ? { backgroundColor: g === 'hoy' ? '#059669' : g === '16avos' ? '#7C3AED' : GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
+                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : g === '16avos' ? '16avos' : `Grupo ${g}`}
               </button>
             ))}
           </div>
@@ -278,6 +300,7 @@ export default function Predictions() {
                           prediction={predictions[match.id]}
                           onSave={handleSave}
                           onDelete={handleDelete}
+                          onViewPicks={userLeagues.length > 0 ? handleViewPicks : undefined}
                         />
                       </motion.div>
                     ))}
@@ -287,6 +310,57 @@ export default function Predictions() {
             </div>
           )}
       </>
+
+      {/* Picks modal */}
+      {picksMatch && picksLigaId && (
+        <LigaPicksModal
+          match={picksMatch}
+          ligaId={picksLigaId}
+          userId={user.id}
+          onClose={() => { setPicksMatch(null); setPicksLigaId(null) }}
+        />
+      )}
+
+      {/* Liga selector (when user is in multiple leagues) */}
+      {leaguePicker && (
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setLeaguePicker(null)}
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+              className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
+              style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-white font-bold text-sm">Ver picks de qué liga?</p>
+                <p className="text-gray-500 text-xs mt-0.5">{leaguePicker.home_team?.name} vs {leaguePicker.away_team?.name}</p>
+              </div>
+              <div className="py-2">
+                {userLeagues.map(liga => (
+                  <button
+                    key={liga.id}
+                    onClick={() => { setPicksMatch(leaguePicker); setPicksLigaId(liga.id); setLeaguePicker(null) }}
+                    className="w-full text-left px-5 py-3.5 text-sm text-white hover:bg-white/5 transition-colors"
+                  >
+                    {liga.nombre}
+                  </button>
+                ))}
+              </div>
+              <div className="px-5 pb-5 pt-2">
+                <button onClick={() => setLeaguePicker(null)} className="w-full py-2.5 rounded-xl text-sm text-gray-500 hover:text-gray-300 transition-colors">
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
+      )}
     </div>
   )
 }

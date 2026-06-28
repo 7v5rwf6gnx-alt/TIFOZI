@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { Flag, TeamBlock } from './FlagPair'
@@ -531,6 +531,9 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
       return next
     })
   }
+  const autoSaveTimer = useRef(null)
+  useEffect(() => () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }, [])
+
   const [homeScore, setHomeScore]       = useState(prediction?.home_score ?? '')
   const [awayScore, setAwayScore]       = useState(prediction?.away_score ?? '')
   const [goalscorerId, setGoalscorerId] = useState(() => {
@@ -568,6 +571,21 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
   }, [prediction?.home_score, prediction?.away_score, prediction?.primer_goleador_prediccion_id, match.id])
 
   function triggerShake() { setShake(true); setTimeout(() => setShake(false), 420) }
+
+  function scheduleAutoSave(hs, as, gid) {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    if (hs === '' || as === '') return
+    autoSaveTimer.current = setTimeout(async () => {
+      setSaving(true); setSaveError(null)
+      const err = await onSave(match.id, parseInt(hs), parseInt(as), gid === 'NONE' ? null : gid)
+      setSaving(false)
+      if (err) { setSaveError(err); return }
+      setIsDirty(false)
+      setSaved(true); setShowToast(true)
+      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => setShowToast(false), 2500)
+    }, 800)
+  }
 
   async function handleGoalscorerSelect(id) {
     setGoalscorerId(id)
@@ -784,9 +802,9 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
               </>
             ) : (
               <>
-                <ScoreInput value={homeScore} onChange={v => { setHomeScore(v); setIsDirty(true) }} />
+                <ScoreInput value={homeScore} onChange={v => { setHomeScore(v); setIsDirty(true); scheduleAutoSave(v, awayScore, goalscorerId) }} />
                 <span className="font-display text-2xl sm:text-3xl text-gray-600">—</span>
-                <ScoreInput value={awayScore} onChange={v => { setAwayScore(v); setIsDirty(true) }} />
+                <ScoreInput value={awayScore} onChange={v => { setAwayScore(v); setIsDirty(true); scheduleAutoSave(homeScore, v, goalscorerId) }} />
               </>
             )}
           </div>
@@ -808,7 +826,7 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
       {/* Goal timeline */}
       {finished && <GoalTimeline goals={match.goals} match={match} />}
 
-      {/* Save button */}
+      {/* Auto-save status */}
       {!locked && (
         <div className="px-5 pb-4 flex flex-col items-center gap-2 relative">
           {saveError && (
@@ -820,43 +838,43 @@ export function MatchPredictionCard({ match, prediction, onSave, onDelete, onVie
               : <p className="text-red-400 text-xs font-semibold text-center">{saveError}</p>
           )}
           <div className="flex items-center justify-center gap-3 w-full relative">
-          <AnimatePresence>
-            {showToast && (
-              <motion.div
-                key="toast"
-                initial={{ y: 8, opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: -6, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="absolute -top-8 left-0 right-0 flex justify-center pointer-events-none z-10"
-              >
-                <span className="inline-flex items-center gap-1.5 bg-green-900/50 border border-green-500/40 text-green-400 text-xs font-bold px-4 py-1.5 rounded-full">
-                  ✓ Predicción guardada
-                </span>
-              </motion.div>
+            <AnimatePresence>
+              {showToast && (
+                <motion.div
+                  key="toast"
+                  initial={{ y: 8, opacity: 0, scale: 0.95 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: -6, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute -top-8 left-0 right-0 flex justify-center pointer-events-none z-10"
+                >
+                  <span className="inline-flex items-center gap-1.5 bg-green-900/50 border border-green-500/40 text-green-400 text-xs font-bold px-4 py-1.5 rounded-full">
+                    ✓ Pronóstico guardado
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {saving && (
+              <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                <span className="w-3 h-3 border border-gray-500 border-t-gray-300 rounded-full animate-spin inline-block" />
+                Guardando...
+              </span>
             )}
-          </AnimatePresence>
-          <button
-            onClick={handleSave}
-            disabled={saving || homeScore === '' || awayScore === ''}
-            className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all disabled:opacity-40 active:scale-95 ${
-              !isDirty && hasSavedPrediction ? 'bg-green-900/30 text-green-400 border border-green-500/30' : 'text-white'
-            }`}
-            style={isDirty || !hasSavedPrediction ? { backgroundColor: '#0A1628', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', boxShadow: '0 4px 15px rgba(10,22,40,0.6)' } : {}}>
-            {saving ? 'Guardando...' : (!isDirty && hasSavedPrediction) ? '✓ Pronóstico guardado' : 'Guardar pronóstico'}
-          </button>
-          {onDelete && prediction?.home_score != null && (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="font-bold text-xs px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
-              style={confirmDelete
-                ? { backgroundColor: 'rgba(220,38,38,0.2)', color: '#F87171', border: '1px solid rgba(220,38,38,0.4)' }
-                : { backgroundColor: 'rgba(255,255,255,0.05)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.1)' }
-              }>
-              {deleting ? '...' : confirmDelete ? '¿Confirmar?' : '🗑'}
-            </button>
-          )}
+            {!saving && hasSavedPrediction && !isDirty && !showToast && (
+              <span className="text-xs text-gray-600">✓ Guardado</span>
+            )}
+            {onDelete && prediction?.home_score != null && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="font-bold text-xs px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+                style={confirmDelete
+                  ? { backgroundColor: 'rgba(220,38,38,0.2)', color: '#F87171', border: '1px solid rgba(220,38,38,0.4)' }
+                  : { backgroundColor: 'rgba(255,255,255,0.05)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.1)' }
+                }>
+                {deleting ? '...' : confirmDelete ? '¿Confirmar?' : '🗑'}
+              </button>
+            )}
           </div>
         </div>
       )}
