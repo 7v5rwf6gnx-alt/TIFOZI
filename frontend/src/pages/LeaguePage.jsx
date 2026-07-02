@@ -189,6 +189,12 @@ function MatchDetailModal({ match, rankingRows, predMap, playerMap, currentUserI
 function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserId }) {
   const [selectedMatch, setSelectedMatch] = useState(null)
 
+  const groupMatches = useMemo(() => matches.filter(m => m.stage === 'group'), [matches])
+  const koMatches    = useMemo(() => matches.filter(m => m.stage !== 'group'), [matches])
+  const hasKo        = koMatches.length > 0
+  const [groupsOpen, setGroupsOpen] = useState(!hasKo)
+  const visibleMatches = groupsOpen ? matches : koMatches
+
   // Current user always first
   const orderedRows = useMemo(() => {
     const me = rankingRows.find(r => r.user_id === currentUserId)
@@ -242,12 +248,20 @@ function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserI
         onClose={() => setSelectedMatch(null)}
       />
     )}
+    {hasKo && (
+      <button onClick={() => setGroupsOpen(v => !v)}
+        className="mb-3 inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors"
+        style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: '#9CA3AF' }}>
+        <span>{groupsOpen ? '▼' : '▶'}</span>
+        <span>{groupsOpen ? 'Ocultar fase de grupos' : `Mostrar fase de grupos (${groupMatches.length})`}</span>
+      </button>
+    )}
     <div className="overflow-x-auto -mx-4">
       <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
         {/* Match header — click to see all picks */}
         <div className="flex items-end mb-2">
           <div style={{ minWidth: 172, flexShrink: 0 }} />
-          {matches.map(m => (
+          {visibleMatches.map(m => (
             <div key={m.id} style={{ width: 50, flexShrink: 0 }}
                  className="flex flex-col items-center gap-0.5 px-1 cursor-pointer group"
                  onClick={() => setSelectedMatch(m)}>
@@ -289,7 +303,7 @@ function PicksGrid({ rankingRows, matches, predMap, playerMap = {}, currentUserI
               </div>
 
               {/* Cells */}
-              {matches.map(match => {
+              {visibleMatches.map(match => {
                 const info = cellInfo(row.user_id, match)
                 if (info.type === 'hidden') {
                   return (
@@ -929,6 +943,12 @@ function PlayerFace({ player, size = 42 }) {
 }
 
 function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, currentUserId }) {
+  const groupMatches = useMemo(() => matches.filter(m => m.stage === 'group'), [matches])
+  const koMatches    = useMemo(() => matches.filter(m => m.stage !== 'group'), [matches])
+  const hasKo        = koMatches.length > 0
+  const [groupsOpen, setGroupsOpen] = useState(!hasKo)
+  const visibleMatches = groupsOpen ? matches : koMatches
+
   const orderedRows = useMemo(() => {
     const me = rankingRows.find(r => r.user_id === currentUserId)
     const rest = rankingRows.filter(r => r.user_id !== currentUserId)
@@ -955,12 +975,21 @@ function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, current
   if (orderedRows.length === 0) return null
 
   return (
+    <>
+    {hasKo && (
+      <button onClick={() => setGroupsOpen(v => !v)}
+        className="mb-3 inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors"
+        style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: '#9CA3AF' }}>
+        <span>{groupsOpen ? '▼' : '▶'}</span>
+        <span>{groupsOpen ? 'Ocultar fase de grupos' : `Mostrar fase de grupos (${groupMatches.length})`}</span>
+      </button>
+    )}
     <div className="overflow-x-auto -mx-4">
       <div style={{ minWidth: 'max-content', paddingLeft: 16, paddingRight: 16 }}>
         {/* Match header */}
         <div className="flex items-end mb-2">
           <div style={{ minWidth: 172, flexShrink: 0 }} />
-          {matches.map(m => (
+          {visibleMatches.map(m => (
             <div key={m.id} style={{ width: 50, flexShrink: 0 }}
                  className="flex flex-col items-center gap-0.5 px-1">
               <img src={hi(m.home_team?.flag_url)} alt=""
@@ -991,7 +1020,7 @@ function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, current
                 <span className={`text-xs font-semibold truncate min-w-0 flex-1 ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>{row.username}</span>
                 <span className="font-display text-lg shrink-0" style={{ color: isMe ? '#1B4FD8' : '#6B7280' }}>{row.total_points}</span>
               </div>
-              {matches.map(match => {
+              {visibleMatches.map(match => {
                 const info = cellInfo(row.user_id, match)
                 return (
                   <div key={match.id} style={{ width: 50, flexShrink: 0 }} className="px-1">
@@ -1028,6 +1057,7 @@ function GoleadoresPicksGrid({ rankingRows, matches, predMap, playerMap, current
         </div>
       </div>
     </div>
+    </>
   )
 }
 
