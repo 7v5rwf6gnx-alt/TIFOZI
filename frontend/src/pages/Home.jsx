@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { AvatarDisplay } from '../components/AvatarDisplay'
 import { Flag } from '../components/FlagPair'
+import TiebreakerPicker from '../components/TiebreakerPicker'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -837,6 +838,9 @@ export default function Home() {
 
       {/* Everything below hero gets a solid background */}
       <div style={{ backgroundColor:'#111111' }}>
+
+      {/* Tiebreaker picker */}
+      {user && <TiebreakerPicker />}
 
       {/* 2. Mis Ligas */}
       {user && <LeaguesSection ligas={ligas} loading={dataLoading} />}

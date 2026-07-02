@@ -1,23 +1,18 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const VERSION_KEY = 'whats_new_v3'
+const VERSION_KEY = 'whats_new_v4'
 
 const FEATURES = [
   {
-    icon: '👥',
-    title: 'Picks del grupo',
-    desc: 'En cada partido de tus pronósticos podés tocar "Picks del grupo" para ver qué apostaron todos los miembros de tu liga, con la distribución de resultados y puntos.',
+    icon: '🏆',
+    title: 'Desempate del Mundial',
+    desc: 'En la página principal ahora podés elegir Campeón, Subcampeón y Tercer lugar. Se usa solo como desempate si dos o más jugadores empatan en puntos peleando por los primeros puestos. Cierra el sábado 4 jul a las 11:50 AM.',
   },
   {
-    icon: '−',
-    title: 'Minimizar partidos',
-    desc: 'Los partidos terminados tienen un botón − para reducirlos a una fila chica (banderas + marcador). Así encontrás más rápido los próximos partidos.',
-  },
-  {
-    icon: '📅',
-    title: 'Filtro por fecha',
-    desc: 'En la tab Partidos ahora hay un filtro "Hoy" para ver solo los partidos del día y apostar más rápido sin scrollear por todos los grupos.',
+    icon: '🎯',
+    title: 'Pronósticos de 16avos',
+    desc: 'Ya podés apostar los 16avos de final. Hay un nuevo filtro "16avos" en Pronósticos y en la tab Partidos de tu liga. En Ranking y Goles la fase de grupos queda colapsada por default para ver los picks de eliminatorias más fácil.',
   },
 ]
 
