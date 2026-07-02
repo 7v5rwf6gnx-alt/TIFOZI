@@ -171,6 +171,9 @@ export default function TiebreakerPicker() {
           <div className="px-5 pb-5 space-y-4">
             <p className="text-gray-400 text-xs leading-relaxed">
               Elegí quién va a ganar el Mundial, el subcampeón y el tercer lugar. <span className="text-white font-semibold">Solo se usa como desempate</span> si dos o más jugadores empatan en puntos peleando por los primeros puestos.
+              <span className="block mt-1.5 text-gray-500">
+                Orden: primero se compara el Campeón, si siguen empatados el Subcampeón, y por último el 3er lugar.
+              </span>
               {remaining > 0 && (
                 <span className="block mt-1.5 text-amber-400">
                   Faltan {remaining} equipo{remaining !== 1 ? 's' : ''} por definir en 16avos — los que ganen se agregan acá automático.

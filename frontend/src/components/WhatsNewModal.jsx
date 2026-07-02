@@ -7,7 +7,7 @@ const FEATURES = [
   {
     icon: '🏆',
     title: 'Desempate del Mundial',
-    desc: 'En la página principal ahora podés elegir Campeón, Subcampeón y Tercer lugar. Se usa solo como desempate si dos o más jugadores empatan en puntos peleando por los primeros puestos. Cierra el sábado 4 jul a las 11:50 AM.',
+    desc: 'En la página principal ahora podés elegir Campeón, Subcampeón y Tercer lugar. Se usa solo como desempate si dos o más jugadores empatan en puntos peleando por los primeros puestos. Primero se compara el Campeón; si ahí siguen empatados, se compara el Subcampeón; y por último el 3er lugar. Cierra el sábado 4 jul a las 11:50 AM.',
   },
   {
     icon: '🎯',
