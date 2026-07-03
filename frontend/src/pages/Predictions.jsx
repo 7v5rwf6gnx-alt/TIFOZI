@@ -138,7 +138,7 @@ export default function Predictions() {
             away_team:away_team_id(id, name, code, flag_url),
             group:group_id(name)
           `)
-          .in('stage', ['group', 'round_of_32'])
+          .in('stage', ['group', 'round_of_32', 'round_of_16'])
           .order('match_number'),
         supabase
           .from('predictions')
@@ -190,13 +190,14 @@ export default function Predictions() {
   }, [user.id])
 
   const todayStr   = new Date().toISOString().slice(0, 10)
-  const groupNames = [...new Set(matches.filter(m => m.stage === 'group').map(m => m.group?.name).filter(Boolean))].sort()
   const hasR32     = matches.some(m => m.stage === 'round_of_32')
+  const hasR16     = matches.some(m => m.stage === 'round_of_16')
   const filtered   = matches.filter(m => {
-    if (selectedGroup === 'hoy')   return m.match_date?.slice(0, 10) === todayStr
-    if (selectedGroup === 'all')   return true
-    if (selectedGroup === '16avos') return m.stage === 'round_of_32'
-    return m.group?.name === selectedGroup
+    if (selectedGroup === 'hoy')     return m.match_date?.slice(0, 10) === todayStr
+    if (selectedGroup === 'all')     return m.stage === 'group'
+    if (selectedGroup === '16avos')  return m.stage === 'round_of_32'
+    if (selectedGroup === 'octavos') return m.stage === 'round_of_16'
+    return false
   })
   const byDate     = filtered.reduce((acc, m) => {
     const d = m.match_date?.slice(0, 10)
@@ -228,15 +229,19 @@ export default function Predictions() {
           <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
-            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...groupNames].map(g => (
+            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : [])].map(g => (
               <button key={g} onClick={() => setSelectedGroup(g)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedGroup === g
                     ? 'text-white shadow-sm'
                     : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
                 }`}
-                style={selectedGroup === g ? { backgroundColor: g === 'hoy' ? '#059669' : g === '16avos' ? '#7C3AED' : GROUP_COLORS[g] ?? '#1B4FD8' } : {}}>
-                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Todos' : g === '16avos' ? '16avos' : `Grupo ${g}`}
+                style={selectedGroup === g ? {
+                  backgroundColor: g === 'hoy' ? '#059669' :
+                                   g === '16avos' ? '#7C3AED' :
+                                   g === 'octavos' ? '#DC2626' : '#1B4FD8'
+                } : {}}>
+                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Fase de grupos' : g === '16avos' ? '16avos' : 'Octavos'}
               </button>
             ))}
           </div>
