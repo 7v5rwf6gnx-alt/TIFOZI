@@ -138,7 +138,7 @@ export default function Predictions() {
             away_team:away_team_id(id, name, code, flag_url),
             group:group_id(name)
           `)
-          .in('stage', ['group', 'round_of_32', 'round_of_16'])
+          .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final'])
           .order('match_number'),
         supabase
           .from('predictions')
@@ -192,11 +192,13 @@ export default function Predictions() {
   const todayStr   = new Date().toISOString().slice(0, 10)
   const hasR32     = matches.some(m => m.stage === 'round_of_32')
   const hasR16     = matches.some(m => m.stage === 'round_of_16')
+  const hasQF      = matches.some(m => m.stage === 'quarter_final')
   const filtered   = matches.filter(m => {
     if (selectedGroup === 'hoy')     return m.match_date?.slice(0, 10) === todayStr
     if (selectedGroup === 'all')     return m.stage === 'group'
     if (selectedGroup === '16avos')  return m.stage === 'round_of_32'
     if (selectedGroup === 'octavos') return m.stage === 'round_of_16'
+    if (selectedGroup === 'cuartos') return m.stage === 'quarter_final'
     return false
   })
   const byDate     = filtered.reduce((acc, m) => {
@@ -229,7 +231,7 @@ export default function Predictions() {
           <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
-            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : [])].map(g => (
+            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : []), ...(hasQF ? ['cuartos'] : [])].map(g => (
               <button key={g} onClick={() => setSelectedGroup(g)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedGroup === g
@@ -239,9 +241,13 @@ export default function Predictions() {
                 style={selectedGroup === g ? {
                   backgroundColor: g === 'hoy' ? '#059669' :
                                    g === '16avos' ? '#7C3AED' :
-                                   g === 'octavos' ? '#DC2626' : '#1B4FD8'
+                                   g === 'octavos' ? '#DC2626' :
+                                   g === 'cuartos' ? '#EAB308' : '#1B4FD8'
                 } : {}}>
-                {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Fase de grupos' : g === '16avos' ? '16avos' : 'Octavos'}
+                {g === 'hoy' ? 'Hoy' :
+                 g === 'all' ? 'Fase de grupos' :
+                 g === '16avos' ? '16avos' :
+                 g === 'octavos' ? 'Octavos' : 'Cuartos'}
               </button>
             ))}
           </div>

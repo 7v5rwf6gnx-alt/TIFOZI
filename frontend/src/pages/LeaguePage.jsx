@@ -790,7 +790,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
     if (!userId) return
     async function load() {
       const [{ data: matchData }, { data: predData }] = await Promise.all([
-        supabase.from('matches').select(WC_MATCH_SELECT).in('stage', ['group', 'round_of_32', 'round_of_16']).order('match_number'),
+        supabase.from('matches').select(WC_MATCH_SELECT).in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final']).order('match_number'),
         supabase.from('predictions')
           .select('match_id, home_score, away_score, points_earned, bonus_goleador, primer_goleador_prediccion_id')
           .eq('user_id', userId),
@@ -822,11 +822,13 @@ function MatchesTab({ ligaId, userId, torneo }) {
   const todayStr = new Date().toISOString().slice(0, 10)
   const hasR32   = matches.some(m => m.stage === 'round_of_32')
   const hasR16   = matches.some(m => m.stage === 'round_of_16')
+  const hasQF    = matches.some(m => m.stage === 'quarter_final')
   const filtered = matches.filter(m => {
     if (filter === 'hoy')     return m.match_date?.slice(0, 10) === todayStr
     if (filter === 'all')     return m.stage === 'group'
     if (filter === '16avos')  return m.stage === 'round_of_32'
     if (filter === 'octavos') return m.stage === 'round_of_16'
+    if (filter === 'cuartos') return m.stage === 'quarter_final'
     return false
   })
 
@@ -837,7 +839,7 @@ function MatchesTab({ ligaId, userId, torneo }) {
 
       {/* Group filter */}
       <div className="flex flex-wrap gap-2 mb-5">
-        {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : [])].map(g => (
+        {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : []), ...(hasQF ? ['cuartos'] : [])].map(g => (
           <button key={g} onClick={() => setFilter(g)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               filter === g ? 'text-white' : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/25'
@@ -845,9 +847,13 @@ function MatchesTab({ ligaId, userId, torneo }) {
             style={filter === g ? {
               backgroundColor: g === 'hoy' ? '#059669' :
                                g === '16avos' ? '#7C3AED' :
-                               g === 'octavos' ? '#DC2626' : '#1B4FD8'
+                               g === 'octavos' ? '#DC2626' :
+                               g === 'cuartos' ? '#EAB308' : '#1B4FD8'
             } : {}}>
-            {g === 'hoy' ? 'Hoy' : g === 'all' ? 'Fase de grupos' : g === '16avos' ? '16avos' : 'Octavos'}
+            {g === 'hoy' ? 'Hoy' :
+             g === 'all' ? 'Fase de grupos' :
+             g === '16avos' ? '16avos' :
+             g === 'octavos' ? 'Octavos' : 'Cuartos'}
           </button>
         ))}
       </div>
