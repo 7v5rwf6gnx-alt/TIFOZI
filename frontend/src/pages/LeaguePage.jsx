@@ -384,7 +384,7 @@ function RankingTab({ ligaId, userId, torneo }) {
         const [{ data: mData }, { data: pData }] = await Promise.all([
           supabase.from('matches')
             .select('id, match_number, stage, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
-            .in('stage', ['group', 'round_of_32']).order('match_number'),
+            .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final']).order('match_number'),
           supabase.rpc('get_liga_predictions', { p_liga_id: ligaId }).limit(10000),
         ])
         setMatches(mData || [])
@@ -1099,7 +1099,7 @@ function GoleadoresTab({ ligaId, userId }) {
         const [{ data: mData }, { data: pData }] = await Promise.all([
           supabase.from('matches')
             .select('id, match_number, stage, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
-            .in('stage', ['group', 'round_of_32']).order('match_number'),
+            .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final']).order('match_number'),
           supabase.rpc('get_liga_predictions', { p_liga_id: ligaId }).limit(10000),
         ])
 
@@ -1306,7 +1306,7 @@ export default function LeaguePage() {
       setLiga(ligaData)
       setMemberCount(mCount || 0)
 
-      const { count: mc } = await supabase.from('matches').select('*', { count: 'exact', head: true }).in('stage', ['group', 'round_of_32'])
+      const { count: mc } = await supabase.from('matches').select('*', { count: 'exact', head: true }).in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final'])
       setMatchCount(mc || 0)
       setLoading(false)
     }
