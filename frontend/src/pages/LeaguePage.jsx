@@ -456,6 +456,33 @@ function RankingTab({ ligaId, userId, torneo }) {
       .map((w, i) => ({ ...w, label: `Sem ${i + 1}` }))
   }, [matches])
 
+  function renderTiebreakInline(uid) {
+    const t = tiebreakMap[uid]
+    if (!t) return null
+    const slots = [
+      { medal: '🥇', id: t.campeon },
+      { medal: '🥈', id: t.subcampeon },
+      { medal: '🥉', id: t.tercer },
+    ]
+    if (!slots.some(s => s.id)) return null
+    return (
+      <div className="flex items-center gap-1.5 mt-0.5">
+        {slots.map((s, i) => {
+          const team = s.id ? teamMap[s.id] : null
+          return (
+            <span key={i} className="flex items-center gap-0.5">
+              <span style={{ fontSize: 9 }}>{s.medal}</span>
+              {team?.flag_url
+                ? <img src={team.flag_url} alt={team.name} title={team.name}
+                       style={{ width: 12, height: 9, objectFit: 'cover', borderRadius: 1.5 }} />
+                : <span className="text-gray-700 text-[9px]">—</span>}
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
   function renderTiebreak(uid) {
     const t = tiebreakMap[uid]
     if (!t) return null
@@ -590,6 +617,7 @@ function RankingTab({ ligaId, userId, torneo }) {
                         {row.username}
                         {isMe && <span className="ml-1 text-xs opacity-60 font-normal">(vos)</span>}
                       </p>
+                      {renderTiebreakInline(row.user_id)}
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {weeks.map(w => {
                           const pts = getWeeklyPts(row.user_id, w)
@@ -690,10 +718,13 @@ function RankingTab({ ligaId, userId, torneo }) {
                         <span className="font-display text-base text-gray-500 w-7 text-center shrink-0">{pos}</span>
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <AvatarDisplay avatarUrl={row.avatar_url} username={row.username} size={32} />
-                          <span className={`font-semibold text-sm truncate ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
-                            {row.username}
-                            {isMe && <span className="ml-1 text-xs text-[#1B4FD8]/60 font-normal">(vos)</span>}
-                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <span className={`font-semibold text-sm truncate ${isMe ? 'text-[#1B4FD8]' : 'text-white'}`}>
+                              {row.username}
+                              {isMe && <span className="ml-1 text-xs text-[#1B4FD8]/60 font-normal">(vos)</span>}
+                            </span>
+                            {renderTiebreakInline(row.user_id)}
+                          </div>
                         </div>
                         {weeks.map(w => {
                           const pts = getWeeklyPts(row.user_id, w)
