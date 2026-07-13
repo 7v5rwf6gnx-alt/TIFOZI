@@ -364,6 +364,8 @@ function RankingTab({ ligaId, userId, torneo }) {
   const [matches, setMatches]     = useState([])
   const [predMap, setPredMap]     = useState({})
   const [playerMap, setPlayerMap] = useState({})
+  const [tiebreakMap, setTiebreakMap] = useState({}) // {userId: {campeon, subcampeon, tercer}}
+  const [teamMap, setTeamMap]     = useState({})     // {teamId: {name, flag_url}}
   const [loading, setLoading]     = useState(true)
   const [view, setView]           = useState('tabla')
   const [expandedRow, setExpandedRow] = useState(null)
@@ -381,13 +383,38 @@ function RankingTab({ ligaId, userId, torneo }) {
       if (rowsData.length > 0) {
         const memberIds = rowsData.map(r => r.user_id)
 
-        const [{ data: mData }, { data: pData }] = await Promise.all([
+        const [{ data: mData }, { data: pData }, { data: tbData }] = await Promise.all([
           supabase.from('matches')
             .select('id, match_number, stage, match_date, match_time, status, competition, home_team:home_team_id(flag_url, code), away_team:away_team_id(flag_url, code)')
             .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final']).order('match_number'),
           supabase.rpc('get_liga_predictions', { p_liga_id: ligaId }).limit(10000),
+          supabase.from('tiebreaker_picks')
+            .select('user_id, campeon_team_id, subcampeon_team_id, tercer_team_id')
+            .in('user_id', memberIds),
         ])
         setMatches(mData || [])
+
+        // Tiebreaker picks map + fetch teams
+        const tbMap = {}
+        const teamIds = new Set()
+        for (const t of tbData || []) {
+          tbMap[t.user_id] = {
+            campeon: t.campeon_team_id,
+            subcampeon: t.subcampeon_team_id,
+            tercer: t.tercer_team_id,
+          }
+          if (t.campeon_team_id)    teamIds.add(t.campeon_team_id)
+          if (t.subcampeon_team_id) teamIds.add(t.subcampeon_team_id)
+          if (t.tercer_team_id)     teamIds.add(t.tercer_team_id)
+        }
+        setTiebreakMap(tbMap)
+        if (teamIds.size > 0) {
+          const { data: teamsData } = await supabase.from('teams').select('id, name, flag_url').in('id', [...teamIds])
+          const tMap = {}
+          for (const t of teamsData || []) tMap[t.id] = t
+          setTeamMap(tMap)
+        }
+
         const map = {}
         const playerIds = new Set()
         for (const p of pData || []) {
@@ -428,6 +455,37 @@ function RankingTab({ ligaId, userId, torneo }) {
       .sort((a, b) => a.key.localeCompare(b.key))
       .map((w, i) => ({ ...w, label: `Sem ${i + 1}` }))
   }, [matches])
+
+  function renderTiebreak(uid) {
+    const t = tiebreakMap[uid]
+    if (!t) return null
+    const slots = [
+      { key: 'campeon',    label: '🥇', id: t.campeon },
+      { key: 'subcampeon', label: '🥈', id: t.subcampeon },
+      { key: 'tercer',     label: '🥉', id: t.tercer },
+    ]
+    return (
+      <div className="flex items-center justify-center gap-3 px-4 py-2 border-t border-white/5"
+           style={{ background: 'rgba(0,0,0,0.2)' }}>
+        <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider mr-1">Desempate:</span>
+        {slots.map(s => {
+          const team = s.id ? teamMap[s.id] : null
+          if (!team) return (
+            <span key={s.key} className="text-[10px] text-gray-700">{s.label} —</span>
+          )
+          return (
+            <span key={s.key} className="flex items-center gap-1">
+              <span className="text-[11px]">{s.label}</span>
+              {team.flag_url && (
+                <img src={team.flag_url} alt="" style={{ width: 16, height: 12, objectFit: 'cover', borderRadius: 2 }} />
+              )}
+              <span className="text-[10px] text-gray-400 font-semibold">{team.name}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
 
   function getWeeklyPts(uid, week) {
     if (!week.hasFinished) return null
@@ -580,6 +638,7 @@ function RankingTab({ ligaId, userId, torneo }) {
                             <p className="text-gray-600 text-[10px] mt-0.5">❌ Fallados</p>
                           </div>
                         </div>
+                        {renderTiebreak(row.user_id)}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -673,6 +732,7 @@ function RankingTab({ ligaId, userId, torneo }) {
                                 </div>
                               ))}
                             </div>
+                            {renderTiebreak(row.user_id)}
                           </motion.div>
                         )}
                       </AnimatePresence>
