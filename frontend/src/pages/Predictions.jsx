@@ -120,7 +120,7 @@ export default function Predictions() {
   const [matches, setMatches]             = useState([])
   const [predictions, setPredictions]     = useState({})
   const [loading, setLoading]             = useState(true)
-  const [selectedGroup, setSelectedGroup] = useState('all')
+  const [selectedGroup, setSelectedGroup] = useState('final')
   const [userLeagues, setUserLeagues]     = useState([])
   const [picksMatch, setPicksMatch]       = useState(null)
   const [picksLigaId, setPicksLigaId]    = useState(null)
@@ -138,7 +138,7 @@ export default function Predictions() {
             away_team:away_team_id(id, name, code, flag_url),
             group:group_id(name)
           `)
-          .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final'])
+          .in('stage', ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'])
           .order('match_number'),
         supabase
           .from('predictions')
@@ -194,6 +194,7 @@ export default function Predictions() {
   const hasR16     = matches.some(m => m.stage === 'round_of_16')
   const hasQF      = matches.some(m => m.stage === 'quarter_final')
   const hasSF      = matches.some(m => m.stage === 'semi_final')
+  const hasFinal   = matches.some(m => m.stage === 'final' || m.stage === 'third_place')
   const filtered   = matches.filter(m => {
     if (selectedGroup === 'hoy')     return m.match_date?.slice(0, 10) === todayStr
     if (selectedGroup === 'all')     return m.stage === 'group'
@@ -201,6 +202,7 @@ export default function Predictions() {
     if (selectedGroup === 'octavos') return m.stage === 'round_of_16'
     if (selectedGroup === 'cuartos') return m.stage === 'quarter_final'
     if (selectedGroup === 'semis')   return m.stage === 'semi_final'
+    if (selectedGroup === 'final')   return m.stage === 'final' || m.stage === 'third_place'
     return false
   })
   const byDate     = filtered.reduce((acc, m) => {
@@ -233,7 +235,7 @@ export default function Predictions() {
           <p className="text-gray-500 mb-6 text-sm">3 pts exacto · 1 pt resultado · +1 pt goleador</p>
 
           <div className="flex flex-wrap gap-2 mb-8">
-            {['hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : []), ...(hasQF ? ['cuartos'] : []), ...(hasSF ? ['semis'] : [])].map(g => (
+            {[...(hasFinal ? ['final'] : []), 'hoy', 'all', ...(hasR32 ? ['16avos'] : []), ...(hasR16 ? ['octavos'] : []), ...(hasQF ? ['cuartos'] : []), ...(hasSF ? ['semis'] : [])].map(g => (
               <button key={g} onClick={() => setSelectedGroup(g)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedGroup === g
@@ -245,13 +247,17 @@ export default function Predictions() {
                                    g === '16avos' ? '#7C3AED' :
                                    g === 'octavos' ? '#DC2626' :
                                    g === 'cuartos' ? '#EAB308' :
-                                   g === 'semis' ? '#EC4899' : '#1B4FD8'
-                } : {}}>
+                                   g === 'semis' ? '#EC4899' :
+                                   g === 'final' ? '#FFD700' : '#1B4FD8'
+                } : {
+                  ...(g === 'final' ? { color: '#FFD700', borderColor: 'rgba(255,215,0,0.35)' } : {})
+                }}>
                 {g === 'hoy' ? 'Hoy' :
                  g === 'all' ? 'Fase de grupos' :
                  g === '16avos' ? '16avos' :
                  g === 'octavos' ? 'Octavos' :
-                 g === 'cuartos' ? 'Cuartos' : 'Semis'}
+                 g === 'cuartos' ? 'Cuartos' :
+                 g === 'semis' ? 'Semis' : '🏆 Final'}
               </button>
             ))}
           </div>
